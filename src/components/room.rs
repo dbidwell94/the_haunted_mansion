@@ -167,15 +167,11 @@ fn spawn_wall_colliders(
     let mut level_to_non_walkable_locations: HashMap<Entity, HashSet<GridCoords>> = HashMap::new();
 
     non_walkable_query.for_each(|(&grid_coords, parent)| {
-        let Ok(grandparent) = parent_query.get(parent.get()) else {
-            return;
-        };
-
-        let Ok(parent) = grandparent_query.get(grandparent.get()) else {
-            return;
-        };
-
-        let Ok(room_entity) = room_query.get(parent.get()) else {
+        let Ok(room_entity) = parent_query
+            .get(parent.get())
+            .and_then(|grandparent| grandparent_query.get(grandparent.get()))
+            .and_then(|parent| room_query.get(parent.get()))
+        else {
             return;
         };
 
