@@ -5,6 +5,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier2d::prelude::*;
 
 mod components;
+mod events;
 
 #[derive(Default, Eq, PartialEq, Debug, Hash, Clone, States)]
 pub enum GameState {

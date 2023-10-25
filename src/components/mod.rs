@@ -2,6 +2,9 @@ use bevy::prelude::*;
 
 mod character;
 mod room;
+mod card;
+
+pub use room::Room;
 
 pub struct ComponentPlugin;
 
