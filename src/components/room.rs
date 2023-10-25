@@ -3,12 +3,14 @@ use bevy::{
     utils::{HashMap, HashSet},
 };
 use bevy_ecs_ldtk::prelude::*;
+use bevy_rapier2d::prelude::*;
 use derivative::Derivative;
 use lazy_static::lazy_static;
 
 use crate::GameState;
 
 const ROOM_SIZE: f32 = 96.0;
+const INT_TILE_SIZE: f32 = 8.;
 
 fn room_location_to_position(location: (i32, i32)) -> Vec2 {
     Vec2::new(location.0 as f32 * ROOM_SIZE, location.1 as f32 * ROOM_SIZE)
@@ -33,13 +35,28 @@ lazy_static! {
 
 const LDTK_LOCATION: &'static str = "ldtk/haunted.ldtk";
 
+#[derive(Component, Default)]
+pub struct NonWalkable;
+
+#[derive(LdtkIntCell, Bundle)]
+pub struct NonWalkableBundle {
+    non_walkable: NonWalkable,
+}
+
+#[repr(i32)]
+#[allow(dead_code)]
+enum LayerMask {
+    NonWalkable = 1,
+    RoomBound = 2,
+}
+
 #[derive(Resource, Clone, Default)]
 pub struct RoomCounter {
     pub rooms: HashMap<Room, u8>,
     pub filled_tiles: HashMap<(i32, i32, i8), Room>,
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Reflect)]
 #[allow(dead_code)]
 pub enum RoomLevel {
     Basement,
@@ -49,7 +66,7 @@ pub enum RoomLevel {
 
 pub struct RoomPlugin;
 
-#[derive(Derivative, Component, Debug, Clone)]
+#[derive(Derivative, Component, Debug, Clone, Reflect)]
 #[derivative(Hash, Eq, PartialEq)]
 pub struct Room {
     name: String,
@@ -68,6 +85,9 @@ impl Plugin for RoomPlugin {
                 int_grid_rendering: IntGridRendering::Invisible,
                 ..default()
             })
+            .register_type::<Room>()
+            .register_type::<HashSet<RoomLevel>>()
+            .register_ldtk_int_cell::<NonWalkableBundle>(LayerMask::NonWalkable as i32)
             .add_systems(OnEnter(GameState::Main), setup_first_rooms)
             .add_systems(Update, spawn_wall_colliders);
     }
@@ -112,7 +132,7 @@ pub fn setup_first_rooms(
             ..default()
         },
         name: Name::new(entryway.name.to_owned()),
-        room: entryway.to_owned()
+        room: entryway.to_owned(),
     });
 
     commands.spawn(RoomBundle {
@@ -123,7 +143,7 @@ pub fn setup_first_rooms(
             ..default()
         },
         name: Name::new(hallway.name.to_owned()),
-        room: hallway.to_owned()
+        room: hallway.to_owned(),
     });
 
     room_counter.rooms.insert(entryway.to_owned(), 1);
@@ -139,9 +159,54 @@ pub fn setup_first_rooms(
 
 fn spawn_wall_colliders(
     mut commands: Commands,
-    query: Query<(Entity, &GridCoords, &IntGridCell, &Parent), Added<IntGridCell>>,
+    non_walkable_query: Query<(&GridCoords, &Parent), Added<NonWalkable>>,
+    parent_query: Query<&Parent, Without<NonWalkable>>,
+    grandparent_query: Query<&Parent, With<Handle<LdtkLevel>>>,
+    room_query: Query<Entity, With<Room>>,
 ) {
-    for (entity, _, _, parent) in &query {
-        info!("{parent:?} -- {entity:?}");
+    let mut level_to_non_walkable_locations: HashMap<Entity, HashSet<GridCoords>> = HashMap::new();
+
+    non_walkable_query.for_each(|(&grid_coords, parent)| {
+        let Ok(grandparent) = parent_query.get(parent.get()) else {
+            return;
+        };
+
+        let Ok(parent) = grandparent_query.get(grandparent.get()) else {
+            return;
+        };
+
+        let Ok(room_entity) = room_query.get(parent.get()) else {
+            return;
+        };
+
+        level_to_non_walkable_locations
+            .entry(room_entity)
+            .or_default()
+            .insert(grid_coords);
+    });
+
+    for entity in &room_query {
+        let Some(grid_coords) = level_to_non_walkable_locations.get(&entity) else {
+            continue;
+        };
+
+        for coord in grid_coords {
+            let collider = commands
+                .spawn((
+                    Collider::cuboid(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2.),
+                    Name::new("Non-Walkable Collider"),
+                    TransformBundle {
+                        local: Transform::from_xyz(
+                            coord.x as f32 * INT_TILE_SIZE + INT_TILE_SIZE / 2.,
+                            coord.y as f32 * INT_TILE_SIZE + INT_TILE_SIZE / 2.,
+                            0.,
+                        ),
+                        ..Default::default()
+                    },
+                ))
+                .id();
+
+            commands.entity(entity).add_child(collider);
+        }
     }
 }
