@@ -9,6 +9,7 @@ mod components;
 pub enum GameState {
     #[default]
     Loading,
+    MainMenu,
     Main,
     UI,
     Paused,
