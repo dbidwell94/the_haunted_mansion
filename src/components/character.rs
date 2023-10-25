@@ -3,6 +3,7 @@ use crate::GameState;
 use bevy::prelude::*;
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_asset_loader::prelude::*;
+use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::ops::Mul;
 
@@ -116,6 +117,8 @@ fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
                     .build(),
                 ..Default::default()
             },
+            KinematicCharacterController::default(),
+            Collider::compound(vec![(Vec2::new(0., -10.), 0., Collider::cuboid(4., 2.))]),
         ))
         .add_child(camera_entity);
 }
@@ -179,10 +182,16 @@ fn update_character_animation(
 }
 
 fn process_player_input(
-    mut animation_query: Query<(&mut Transform, &ActionState<CharacterInput>), With<Player>>,
+    mut animation_query: Query<
+        (
+            &mut KinematicCharacterController,
+            &ActionState<CharacterInput>,
+        ),
+        With<Player>,
+    >,
     time: Res<Time>,
 ) {
-    let Ok((mut transform, input)) = animation_query.get_single_mut() else {
+    let Ok((mut char_controller, input)) = animation_query.get_single_mut() else {
         return;
     };
 
@@ -200,6 +209,6 @@ fn process_player_input(
         return;
     }
 
-    transform.translation +=
-        walk_transform.extend(0.) * time.delta_seconds() * CHARACTER_MOVE_SPEED;
+    char_controller.translation =
+        Some(walk_transform * time.delta_seconds() * CHARACTER_MOVE_SPEED);
 }

@@ -65,16 +65,27 @@ impl Plugin for RoomPlugin {
         app.init_resource::<RoomCounter>()
             .insert_resource(LdtkSettings {
                 level_spawn_behavior: LevelSpawnBehavior::UseZeroTranslation,
+                int_grid_rendering: IntGridRendering::Invisible,
                 ..default()
             })
-            .add_systems(OnEnter(GameState::Main), setup_first_rooms);
+            .add_systems(OnEnter(GameState::Main), setup_first_rooms)
+            .add_systems(Update, spawn_wall_colliders);
     }
+}
+
+#[derive(Component, Default, Debug)]
+pub struct Wall;
+
+#[derive(Bundle, LdtkIntCell, Default, Debug)]
+pub struct WallBundle {
+    wall: Wall,
 }
 
 #[derive(Bundle)]
 struct RoomBundle {
     ldtk: LdtkWorldBundle,
     name: Name,
+    room: Room,
 }
 
 pub fn setup_first_rooms(
@@ -101,6 +112,7 @@ pub fn setup_first_rooms(
             ..default()
         },
         name: Name::new(entryway.name.to_owned()),
+        room: entryway.to_owned()
     });
 
     commands.spawn(RoomBundle {
@@ -111,6 +123,7 @@ pub fn setup_first_rooms(
             ..default()
         },
         name: Name::new(hallway.name.to_owned()),
+        room: hallway.to_owned()
     });
 
     room_counter.rooms.insert(entryway.to_owned(), 1);
@@ -122,4 +135,13 @@ pub fn setup_first_rooms(
     room_counter
         .filled_tiles
         .insert((1, 0, 0), hallway.to_owned());
+}
+
+fn spawn_wall_colliders(
+    mut commands: Commands,
+    query: Query<(Entity, &GridCoords, &IntGridCell, &Parent), Added<IntGridCell>>,
+) {
+    for (entity, _, _, parent) in &query {
+        info!("{parent:?} -- {entity:?}");
+    }
 }

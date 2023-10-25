@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_rapier2d::prelude::*;
 
 mod components;
 
@@ -31,6 +32,8 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
             LdtkPlugin,
             WorldInspectorPlugin::new(),
+            RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0),
+            RapierDebugRenderPlugin::default(),
         ))
         .add_plugins(components::ComponentPlugin)
         .run();
