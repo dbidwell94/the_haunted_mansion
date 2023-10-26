@@ -2,12 +2,15 @@ use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
+use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_rapier2d::prelude::*;
 use derivative::Derivative;
 use lazy_static::lazy_static;
 
 use crate::GameState;
+
+use super::card::CardTypeNoValue;
 
 const ROOM_SIZE: f32 = 96.0;
 const INT_TILE_SIZE: f32 = 8.;
@@ -17,23 +20,38 @@ fn room_location_to_position(location: (i32, i32)) -> Vec2 {
 }
 
 lazy_static! {
-    pub static ref LDTK_ROOMS: [Room; 2] = [
+    pub static ref LDTK_ROOMS: [Room; 3] = [
         Room {
             name: "Entryway".into(),
             allowed_copies: 1,
             iid: "ac9b33c2-6280-11ee-baef-b119038a937a".into(),
-            room_level: HashSet::from([RoomLevel::Ground])
+            room_level: HashSet::from([RoomLevel::Ground]),
+            card: CardTypeNoValue::None
         },
         Room {
             name: "Hallway-2x0y".into(),
             allowed_copies: 4,
             iid: "078ebb40-6280-11ee-81c9-dd1f0b0b06bd".into(),
-            room_level: HashSet::from([RoomLevel::Ground, RoomLevel::Upper])
+            room_level: HashSet::from([RoomLevel::Ground, RoomLevel::Upper]),
+            card: CardTypeNoValue::None
+        },
+        Room {
+            name: "Hallway-2x2y".into(),
+            allowed_copies: 2,
+            iid: "f2a4fac0-6280-11ee-8d3e-0d30e91a8fca".into(),
+            room_level: HashSet::from([]),
+            card: CardTypeNoValue::None
         }
     ];
 }
 
 const LDTK_LOCATION: &'static str = "ldtk/haunted.ldtk";
+
+#[derive(AssetCollection, Resource)]
+pub struct RoomAssets {
+    #[asset(path = "ldtk/haunted.ldtk")]
+    ldtk_asset: Handle<LdtkAsset>,
+}
 
 #[derive(Component, Default)]
 pub struct NonWalkable;
@@ -64,8 +82,6 @@ pub enum RoomLevel {
     Upper,
 }
 
-pub struct RoomPlugin;
-
 #[derive(Derivative, Component, Debug, Clone, Reflect)]
 #[derivative(Hash, Eq, PartialEq)]
 pub struct Room {
@@ -75,11 +91,15 @@ pub struct Room {
     #[derivative(PartialEq = "ignore")]
     room_level: HashSet<RoomLevel>,
     allowed_copies: u8,
+    card: CardTypeNoValue,
 }
+
+pub struct RoomPlugin;
 
 impl Plugin for RoomPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RoomCounter>()
+        app.add_collection_to_loading_state::<_, RoomAssets>(GameState::Loading)
+            .init_resource::<RoomCounter>()
             .insert_resource(LdtkSettings {
                 level_spawn_behavior: LevelSpawnBehavior::UseZeroTranslation,
                 int_grid_rendering: IntGridRendering::Invisible,
@@ -88,7 +108,7 @@ impl Plugin for RoomPlugin {
             .register_type::<Room>()
             .register_type::<HashSet<RoomLevel>>()
             .register_ldtk_int_cell::<NonWalkableBundle>(LayerMask::NonWalkable as i32)
-            .add_systems(OnEnter(GameState::Main), setup_first_rooms)
+            .add_systems(OnEnter(GameState::InitialSpawn), setup_first_rooms)
             .add_systems(Update, spawn_wall_colliders);
     }
 }
@@ -108,23 +128,24 @@ struct RoomBundle {
     room: Room,
 }
 
-
-
 pub fn setup_first_rooms(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    room_assets: Res<RoomAssets>,
     mut room_counter: ResMut<RoomCounter>,
 ) {
     let entryway = LDTK_ROOMS.iter().find(|room| room.name == "Entryway");
     let entryway_location = room_location_to_position((0, 0));
     let hallway = LDTK_ROOMS.iter().find(|room| room.name == "Hallway-2x0y");
     let hallway_location = room_location_to_position((1, 0));
+    let hallway_4way = LDTK_ROOMS.iter().find(|room| room.name == "Hallway-2x2y");
+    let hallway_4way_location = room_location_to_position((1, 1));
 
-    let (Some(entryway), Some(hallway)) = (entryway, hallway) else {
+    let (Some(entryway), Some(hallway), Some(hallway_4way)) = (entryway, hallway, hallway_4way)
+    else {
         panic!("Cannot find the first rooms: 'entryway' -- 'hallway-2x0y'");
     };
 
-    let ldtk_handle = asset_server.load(LDTK_LOCATION);
+    let ldtk_handle = &room_assets.ldtk_asset;
 
     commands.spawn(RoomBundle {
         ldtk: LdtkWorldBundle {
@@ -139,7 +160,7 @@ pub fn setup_first_rooms(
 
     commands.spawn(RoomBundle {
         ldtk: LdtkWorldBundle {
-            ldtk_handle,
+            ldtk_handle: ldtk_handle.clone(),
             level_set: LevelSet::from_iid(hallway.iid.to_owned()),
             transform: Transform::from_xyz(hallway_location.x, hallway_location.y, -1.),
             ..default()
@@ -148,8 +169,20 @@ pub fn setup_first_rooms(
         room: hallway.to_owned(),
     });
 
+    commands.spawn(RoomBundle {
+        ldtk: LdtkWorldBundle {
+            ldtk_handle: ldtk_handle.clone(),
+            level_set: LevelSet::from_iid(hallway_4way.iid.to_owned()),
+            transform: Transform::from_xyz(hallway_4way_location.x, hallway_4way_location.y, -1.),
+            ..default()
+        },
+        name: Name::new(hallway_4way.name.to_owned()),
+        room: hallway_4way.to_owned(),
+    });
+
     room_counter.rooms.insert(entryway.to_owned(), 1);
     room_counter.rooms.insert(hallway.to_owned(), 1);
+    room_counter.rooms.insert(hallway_4way.to_owned(), 1);
 
     room_counter
         .filled_tiles
@@ -157,6 +190,9 @@ pub fn setup_first_rooms(
     room_counter
         .filled_tiles
         .insert((1, 0, 0), hallway.to_owned());
+    room_counter
+        .filled_tiles
+        .insert((1, 1, 0), hallway_4way.to_owned());
 }
 
 fn spawn_wall_colliders(

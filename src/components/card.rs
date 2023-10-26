@@ -1,4 +1,14 @@
 use crate::events::GameEvent;
+use bevy::prelude::*;
+
+#[derive(Default, Clone, Copy, Hash, PartialEq, Debug, Reflect)]
+pub enum CardTypeNoValue {
+    Event,
+    Omen,
+    Item,
+    #[default]
+    None,
+}
 
 pub enum CardType {
     Event(EventCard),

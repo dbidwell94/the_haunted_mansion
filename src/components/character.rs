@@ -1,5 +1,6 @@
 use super::room::setup_first_rooms;
 use crate::GameState;
+use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_asset_loader::prelude::*;
@@ -12,10 +13,12 @@ const CHARACTER_MOVE_SPEED: f32 = 45.0;
 #[derive(Actionlike, Reflect, Clone)]
 enum CharacterInput {
     Move,
+    TogglePause,
+    RotateRoom,
 }
 
 #[derive(AssetCollection, Resource)]
-struct CharacterWalk {
+pub struct CharacterWalk {
     #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
     #[asset(path = "sprites/professor_walk.png")]
     walking: Handle<TextureAtlas>,
@@ -59,7 +62,7 @@ impl Plugin for CharacterPlugin {
         app.add_collection_to_loading_state::<_, CharacterWalk>(GameState::Loading)
             .add_plugins(InputManagerPlugin::<CharacterInput>::default())
             .add_systems(
-                OnEnter(GameState::Main),
+                OnEnter(GameState::InitialSpawn),
                 spawn_character.after(setup_first_rooms),
             )
             .add_systems(
@@ -69,11 +72,16 @@ impl Plugin for CharacterPlugin {
             .add_systems(
                 Update,
                 process_player_input.run_if(in_state(GameState::Main)),
+            )
+            .add_systems(
+                Update,
+                listen_for_pause
+                    .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
             );
     }
 }
 
-fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
+pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
     let sprite = TextureAtlasSprite {
         custom_size: Some(Vec2::splat(25.)),
         index: CharacterFacing::Right * 9usize,
@@ -82,6 +90,7 @@ fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
 
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scale = 0.25;
+    camera_bundle.camera_2d.clear_color = ClearColorConfig::Custom(Color::BLACK);
 
     let camera_entity = commands.spawn(camera_bundle).id();
 
@@ -114,6 +123,8 @@ fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
                         },
                         CharacterInput::Move,
                     )
+                    .insert(KeyCode::Escape, CharacterInput::TogglePause)
+                    .insert(KeyCode::R, CharacterInput::RotateRoom)
                     .build(),
                 ..Default::default()
             },
@@ -211,4 +222,25 @@ fn process_player_input(
 
     char_controller.translation =
         Some(walk_transform * time.delta_seconds() * CHARACTER_MOVE_SPEED);
+}
+
+fn listen_for_pause(
+    game_state: Res<State<GameState>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+    input_query: Query<&ActionState<CharacterInput>, With<Player>>,
+) {
+    let Ok(input) = input_query.get_single() else {
+        return;
+    };
+
+    let pause_pressed = input.just_pressed(CharacterInput::TogglePause);
+    if !pause_pressed {
+        return;
+    }
+
+    if game_state.get() == &GameState::Main {
+        next_game_state.set(GameState::Paused);
+    } else {
+        next_game_state.set(GameState::Main);
+    }
 }

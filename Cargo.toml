@@ -14,3 +14,5 @@ lazy_static = "1.4.0"
 derivative = "2.2.0"
 bevy_asset_loader = { version = "0.17.0", features = ["2d"] }
 bevy_rapier2d = "0.22.0"
+bevy-ui-dsl = "0.6.1"
+bevy_embedded_assets = "0.8.0"

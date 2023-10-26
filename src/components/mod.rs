@@ -6,6 +6,9 @@ mod card;
 
 pub use room::Room;
 
+pub use room::setup_first_rooms;
+pub use character::spawn_character;
+
 pub struct ComponentPlugin;
 
 impl Plugin for ComponentPlugin {

@@ -352,6 +352,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy-ui-dsl"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "786bd547ec90da38c01dc91ee69f56c1c4d095ead38e3620ad3eafa0e3660738"
+dependencies = [
+ "bevy_asset",
+ "bevy_ecs",
+ "bevy_hierarchy",
+ "bevy_render",
+ "bevy_text",
+ "bevy_ui",
+]
+
+[[package]]
 name = "bevy_a11y"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -617,6 +631,16 @@ dependencies = [
  "egui",
  "thread_local",
  "webbrowser",
+]
+
+[[package]]
+name = "bevy_embedded_assets"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49439174a7d2df4244e6fa0bff15cbe5cf9def6b1265a10979171e9023e85f9f"
+dependencies = [
+ "bevy",
+ "cargo-emit",
 ]
 
 [[package]]
@@ -1291,6 +1315,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-emit"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1582e1c9e755dd6ad6b224dcffb135d199399a4568d454bd89fe515ca8425695"
+
+[[package]]
 name = "cc"
 version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1639,7 +1669,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.7.4",
+ "libloading 0.8.1",
 ]
 
 [[package]]
@@ -3635,8 +3665,10 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
+ "bevy-ui-dsl",
  "bevy_asset_loader",
  "bevy_ecs_ldtk",
+ "bevy_embedded_assets",
  "bevy_rapier2d",
  "derivative",
  "lazy_static",
