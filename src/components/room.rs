@@ -45,8 +45,6 @@ lazy_static! {
     ];
 }
 
-const LDTK_LOCATION: &'static str = "ldtk/haunted.ldtk";
-
 #[derive(AssetCollection, Resource)]
 pub struct RoomAssets {
     #[asset(path = "ldtk/haunted.ldtk")]

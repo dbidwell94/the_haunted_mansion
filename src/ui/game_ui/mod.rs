@@ -1,7 +1,9 @@
 use crate::GameState;
 use bevy::prelude::*;
 use bevy_ui_dsl::*;
-mod classes;
+pub mod classes;
+
+const PLAYER_INVENTORY_COUNT: u8 = 6;
 
 pub struct GameUiPlugin;
 
@@ -30,8 +32,10 @@ fn destroy_main_ui(mut commands: Commands, ui: Query<Entity, With<GameUiParent>>
 fn build_main_ui_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     use classes::main::*;
     let root_entity = root(c_root, &asset_server, &mut commands, |p| {
-        node(c_card_holder, p, |p| {
-            text_button("ROOM CARD", c_button_with_text, c_button_text, p);
+        node(c_inventory_container, p, |p| {
+            for _ in 0..PLAYER_INVENTORY_COUNT {
+                node(c_inventory_box, p, |_| {});
+            }
         });
     });
 

@@ -81,7 +81,11 @@ impl Plugin for CharacterPlugin {
     }
 }
 
-pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
+pub fn spawn_character(
+    mut commands: Commands,
+    asset: Res<CharacterWalk>,
+    asset_server: Res<AssetServer>,
+) {
     let sprite = TextureAtlasSprite {
         custom_size: Some(Vec2::splat(25.)),
         index: CharacterFacing::Right * 9usize,

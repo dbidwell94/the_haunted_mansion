@@ -12,11 +12,13 @@ pub fn c_root(b: &mut NodeBundle) {
 
 pub fn c_center(b: &mut NodeBundle) {
     b.background_color = BackgroundColor(Color::BLACK);
+    b.border_color = BorderColor(Color::WHITE);
     b.style = Style {
         display: Display::Flex,
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         padding: UiRect::all(Val::Px(12.)),
+        border: UiRect::all(Val::Px(2.)),
         ..default()
     };
 }
