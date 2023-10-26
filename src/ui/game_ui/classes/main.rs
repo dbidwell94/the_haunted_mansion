@@ -12,16 +12,6 @@ pub fn c_root(b: &mut NodeBundle) {
     };
 }
 
-pub fn c_button_with_text(_: &AssetServer, b: &mut ButtonBundle) {
-    b.background_color = BackgroundColor(Color::NONE);
-    b.style = Style {
-        display: Display::Flex,
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        ..default()
-    };
-}
-
 pub fn c_inventory_box(b: &mut NodeBundle) {
     b.border_color = BorderColor(Color::rgb(0.75, 0.75, 0.75));
     b.style = Style {

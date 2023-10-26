@@ -56,7 +56,7 @@ pub enum OmenCard {
 }
 
 impl GameCard for OmenCard {
-    fn process_event(event: GameEvent) {
+    fn process_event(_: GameEvent) {
         todo!()
     }
 }

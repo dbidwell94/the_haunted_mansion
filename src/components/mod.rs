@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 mod character;
 mod room;
+#[allow(dead_code)]
 mod card;
 
 pub use room::Room;
