@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 
-mod character;
-mod room;
 #[allow(dead_code)]
 mod card;
+mod character;
+mod room;
 
 pub use room::Room;
 
-pub use room::setup_first_rooms;
 pub use character::spawn_character;
+pub use room::setup_first_rooms;
 
 pub struct ComponentPlugin;
 
