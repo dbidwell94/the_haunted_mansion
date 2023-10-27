@@ -1,4 +1,4 @@
-use super::{card::CardType, character::Player};
+use super::{card::CardType, character::Player, navmesh::*};
 use crate::prelude::*;
 use crate::GameState;
 use bevy::{
@@ -85,11 +85,20 @@ pub struct RoomBoundBundle {
     room_bound: RoomBound,
 }
 
+#[derive(Component, Default)]
+struct Walkable;
+
+#[derive(LdtkIntCell, Bundle)]
+struct WalkableBundle {
+    walkable: Walkable,
+}
+
 #[repr(i32)]
 #[allow(dead_code)]
 enum LayerMask {
     NonWalkable = 1,
     RoomBound = 2,
+    Walkable = 3,
 }
 
 #[derive(Resource, Clone, Default)]
@@ -148,7 +157,9 @@ impl Plugin for RoomPlugin {
             .add_event::<RoomBoundsHitEvent>()
             .register_ldtk_int_cell::<NonWalkableBundle>(LayerMask::NonWalkable as i32)
             .register_ldtk_int_cell::<RoomBoundBundle>(LayerMask::RoomBound as i32)
+            .register_ldtk_int_cell::<WalkableBundle>(LayerMask::Walkable as i32)
             .add_systems(OnEnter(GameState::InitialSpawn), setup_first_rooms)
+            .add_systems(OnEnter(GameState::InitialSpawn), create_navmesh)
             .add_systems(Update, spawn_wall_colliders)
             .add_systems(Update, spawn_room_bounds)
             .add_systems(Update, check_room_entry_or_exit);
@@ -415,4 +426,11 @@ fn check_room_entry_or_exit(
     for evt in events_to_send {
         room_event.send(evt);
     }
+}
+
+fn create_navmesh(mut commands: Commands) {
+    commands.spawn(NavmeshBundle {
+        name: Name::new("Navmesh"),
+        ..default()
+    });
 }

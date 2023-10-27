@@ -40,6 +40,16 @@ pub fn c_inventory_container(b: &mut NodeBundle) {
     };
 }
 
+pub fn c_button_with_text(_: &AssetServer, b: &mut ButtonBundle) {
+    b.background_color = BackgroundColor(Color::NONE);
+    b.border_color = BorderColor(Color::WHITE);
+    b.style = Style {
+        border: UiRect::all(Val::Px(2.)),
+        padding: UiRect::axes(Val::Px(8.), Val::Px(4.)),
+        ..default()
+    };
+}
+
 pub fn c_button_text(assets: &AssetServer, b: &mut TextStyle) {
     b.font = assets.load("fonts/pixel.ttf");
     b.font_size = 21.;

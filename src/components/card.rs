@@ -100,11 +100,11 @@ pub enum OmenCard {
 }
 
 impl GameCard for OmenCard {
-    fn process_event(_: GameEvent) {
+    fn process_event(_: GameEvent, _: &mut Commands, _: &Res<AssetServer>) {
         todo!()
     }
 }
 
 trait GameCard {
-    fn process_event(event: GameEvent);
+    fn process_event(event: GameEvent, commands: &mut Commands, asset_server: &Res<AssetServer>);
 }

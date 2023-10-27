@@ -2,11 +2,13 @@ use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::GridCoords;
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
+use rand::prelude::*;
 use std::ops::Mul;
 
 const CHARACTER_MOVE_SPEED: f32 = 45.0;
@@ -18,11 +20,22 @@ enum CharacterInput {
     RotateRoom,
 }
 
+#[derive(Resource, Default)]
+struct MouseToWorldCoords(Vec2);
+
 #[derive(AssetCollection, Resource)]
 pub struct CharacterWalk {
     #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
     #[asset(path = "sprites/professor_walk.png")]
     walking: Handle<TextureAtlas>,
+}
+
+#[derive(Component, Default, Clone, Debug, Reflect)]
+pub struct CharacterProps {
+    pub speed: u8,
+    pub might: u8,
+    pub sanity: u8,
+    pub knowledge: u8,
 }
 
 #[repr(usize)]
@@ -56,15 +69,20 @@ struct AnimationTimer {
     pub facing: CharacterFacing,
 }
 
+#[derive(Component)]
+struct PlayerCamera;
+
 pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_collection_to_loading_state::<_, CharacterWalk>(GameState::Loading)
+            .init_resource::<MouseToWorldCoords>()
+            .register_type::<CharacterProps>()
             .add_plugins(InputManagerPlugin::<CharacterInput>::default())
             .add_systems(
                 OnEnter(GameState::InitialSpawn),
-                spawn_character.after(setup_first_rooms),
+                spawn_character_player.after(setup_first_rooms),
             )
             .add_systems(
                 Update,
@@ -79,11 +97,12 @@ impl Plugin for CharacterPlugin {
                 listen_for_pause
                     .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
             )
+            .add_systems(Update, mouse_input.run_if(in_state(GameState::Main)))
             .add_systems(Update, update_character_room_coords);
     }
 }
 
-pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
+pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>) {
     let sprite = TextureAtlasSprite {
         custom_size: Some(Vec2::splat(25.)),
         index: CharacterFacing::Right * 9usize,
@@ -94,7 +113,7 @@ pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
     camera_bundle.projection.scale = 0.25;
     camera_bundle.camera_2d.clear_color = ClearColorConfig::Custom(Color::BLACK);
 
-    let camera_entity = commands.spawn(camera_bundle).id();
+    let camera_entity = commands.spawn(camera_bundle).insert(PlayerCamera).id();
     commands
         .spawn((
             SpriteSheetBundle {
@@ -113,6 +132,12 @@ pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
             Name::new("Character"),
             GravityScale(0.),
             Player,
+            CharacterProps {
+                knowledge: rand::thread_rng().gen_range(2..11),
+                might: rand::thread_rng().gen_range(2..11),
+                sanity: rand::thread_rng().gen_range(2..11),
+                speed: rand::thread_rng().gen_range(2..11),
+            },
             GridCoords { x: 0, y: 0 },
             InputManagerBundle::<CharacterInput> {
                 input_map: InputMap::default()
@@ -245,6 +270,24 @@ fn listen_for_pause(
     }
 }
 
+fn mouse_input(
+    mut mouse_coords: ResMut<MouseToWorldCoords>,
+    q_window: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<PlayerCamera>>,
+) {
+    let (camera, camera_transform) = q_camera.single();
+
+    let window = q_window.single();
+
+    if let Some(world_pos) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+        .map(|ray| ray.origin.truncate())
+    {
+        mouse_coords.0 = world_pos;
+    }
+}
+
 fn update_character_room_coords(
     mut room_changed_event: EventReader<RoomBoundsHitEvent>,
     mut character_query: Query<&mut GridCoords, (With<Player>, Without<Room>)>,
@@ -260,9 +303,9 @@ fn update_character_room_coords(
         if evt.movement_type == RoomEnterExit::Enter {
             player_grid_coords.x = room_grid_coords.x;
             player_grid_coords.y = room_grid_coords.y;
-            info!("Entered new room!");
+            debug!("Entered new room!");
         } else {
-            info!("Exited a room!");
+            debug!("Exited a room!");
         }
     }
 }
