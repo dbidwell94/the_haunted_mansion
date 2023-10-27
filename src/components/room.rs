@@ -1,6 +1,8 @@
 use super::{card::CardType, character::Player, navmesh::*};
 use crate::prelude::*;
 use crate::GameState;
+use bevy::math::Vec3A;
+use bevy::render::primitives::Aabb;
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
@@ -88,6 +90,9 @@ pub struct RoomBoundBundle {
 #[derive(Component, Default)]
 struct Walkable;
 
+#[derive(Component)]
+struct WalkableComponent;
+
 #[derive(LdtkIntCell, Bundle)]
 struct WalkableBundle {
     walkable: Walkable,
@@ -162,6 +167,7 @@ impl Plugin for RoomPlugin {
             .add_systems(OnEnter(GameState::InitialSpawn), create_navmesh)
             .add_systems(Update, spawn_wall_colliders)
             .add_systems(Update, spawn_room_bounds)
+            .add_systems(Update, spawn_walkable_navtiles)
             .add_systems(Update, check_room_entry_or_exit);
     }
 }
@@ -257,12 +263,13 @@ fn spawn_wall_colliders(
     non_walkable_query: Query<(&GridCoords, &Parent), Added<NonWalkable>>,
     parent_query: Query<&Parent, Without<NonWalkable>>,
     grandparent_query: Query<&Parent, With<Handle<LdtkLevel>>>,
-    room_query: Query<Entity, With<Room>>,
+    room_query: Query<(Entity, &GridCoords), With<Room>>,
+    navmesh: Query<Entity, With<NavmeshParent>>,
 ) {
     let mut level_to_non_walkable_locations: HashMap<Entity, HashSet<GridCoords>> = HashMap::new();
 
     non_walkable_query.for_each(|(&grid_coords, parent)| {
-        let Ok(room_entity) = parent_query
+        let Ok((room_entity, _)) = parent_query
             .get(parent.get())
             .and_then(|grandparent| grandparent_query.get(grandparent.get()))
             .and_then(|parent| room_query.get(parent.get()))
@@ -276,7 +283,7 @@ fn spawn_wall_colliders(
             .insert(grid_coords);
     });
 
-    for entity in &room_query {
+    for (entity, room_coords) in &room_query {
         let Some(grid_coords) = level_to_non_walkable_locations.get(&entity) else {
             continue;
         };
@@ -304,6 +311,42 @@ fn spawn_wall_colliders(
                 .id();
 
             commands.entity(entity).add_child(collider);
+
+            let Ok(navmesh_entity) = navmesh.get_single() else {
+                continue;
+            };
+
+            let navmesh_tile = commands
+                .spawn((
+                    NavmeshTileBundle {
+                        grid_coord: GridCoords {
+                            x: room_coords.x + coord.x,
+                            y: room_coords.y + coord.y,
+                        },
+                        walkable: super::Walkable::NotWalkable,
+                        transform: TransformBundle {
+                            local: Transform::from_xyz(
+                                (coord.x as f32 * INT_TILE_SIZE)
+                                    + (ROOM_SIZE * (room_coords.x as f32)),
+                                (coord.y as f32 * INT_TILE_SIZE)
+                                    + (ROOM_SIZE * (room_coords.y as f32)),
+                                1.,
+                            ),
+                            ..default()
+                        },
+                    },
+                    Name::new("NotWalkable"),
+                    Aabb {
+                        half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
+                        ..Default::default()
+                    },
+                    AabbGizmo {
+                        color: Some(Color::RED),
+                    },
+                ))
+                .id();
+
+            commands.entity(navmesh_entity).add_child(navmesh_tile);
         }
     }
 }
@@ -313,12 +356,13 @@ fn spawn_room_bounds(
     non_walkable_query: Query<(&GridCoords, &Parent), Added<RoomBound>>,
     parent_query: Query<&Parent, Without<RoomBound>>,
     grandparent_query: Query<&Parent, With<Handle<LdtkLevel>>>,
-    room_query: Query<Entity, With<Room>>,
+    room_query: Query<(Entity, &GridCoords), With<Room>>,
+    navmesh: Query<Entity, With<NavmeshParent>>,
 ) {
     let mut level_to_room_bound_locations: HashMap<Entity, HashSet<GridCoords>> = HashMap::new();
 
     non_walkable_query.for_each(|(&grid_coords, parent)| {
-        let Ok(room_entity) = parent_query
+        let Ok((room_entity, _)) = parent_query
             .get(parent.get())
             .and_then(|grandparent| grandparent_query.get(grandparent.get()))
             .and_then(|parent| room_query.get(parent.get()))
@@ -332,7 +376,7 @@ fn spawn_room_bounds(
             .insert(grid_coords);
     });
 
-    for entity in &room_query {
+    for (entity, room_coords) in &room_query {
         let Some(grid_coords) = level_to_room_bound_locations.get(&entity) else {
             continue;
         };
@@ -376,6 +420,112 @@ fn spawn_room_bounds(
                 .id();
 
             commands.entity(entity).add_child(collider);
+
+            let Ok(navmesh_entity) = navmesh.get_single() else {
+                continue;
+            };
+
+            let navmesh_tile = commands
+                .spawn((
+                    NavmeshTileBundle {
+                        grid_coord: GridCoords {
+                            x: room_coords.x + coord.x,
+                            y: room_coords.y + coord.y,
+                        },
+                        walkable: super::Walkable::Walkable,
+                        transform: TransformBundle {
+                            local: Transform::from_xyz(
+                                (coord.x as f32 * INT_TILE_SIZE)
+                                    + (ROOM_SIZE * (room_coords.x as f32)),
+                                (coord.y as f32 * INT_TILE_SIZE)
+                                    + (ROOM_SIZE * (room_coords.y as f32)),
+                                1.,
+                            ),
+                            ..default()
+                        },
+                    },
+                    Name::new("Walkable"),
+                    Aabb {
+                        half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
+                        ..Default::default()
+                    },
+                    AabbGizmo {
+                        color: Some(Color::GREEN),
+                    },
+                ))
+                .id();
+
+            commands.entity(navmesh_entity).add_child(navmesh_tile);
+        }
+    }
+}
+
+fn spawn_walkable_navtiles(
+    mut commands: Commands,
+    walkable_query: Query<(&GridCoords, &Parent), Added<Walkable>>,
+    parent_query: Query<&Parent, Without<Walkable>>,
+    grandparent_query: Query<&Parent, With<Handle<LdtkLevel>>>,
+    room_query: Query<(Entity, &GridCoords), With<Room>>,
+    navmesh: Query<Entity, With<NavmeshParent>>,
+) {
+    let mut level_to_room_bound_locations: HashMap<Entity, HashSet<GridCoords>> = HashMap::new();
+
+    walkable_query.for_each(|(&grid_coords, parent)| {
+        let Ok((room_entity, _)) = parent_query
+            .get(parent.get())
+            .and_then(|grandparent| grandparent_query.get(grandparent.get()))
+            .and_then(|parent| room_query.get(parent.get()))
+        else {
+            return;
+        };
+
+        level_to_room_bound_locations
+            .entry(room_entity)
+            .or_default()
+            .insert(grid_coords);
+    });
+
+    for (entity, room_coords) in &room_query {
+        let Some(grid_coords) = level_to_room_bound_locations.get(&entity) else {
+            continue;
+        };
+
+        for coord in grid_coords {
+            let Ok(navmesh_entity) = navmesh.get_single() else {
+                continue;
+            };
+
+            let navmesh_tile = commands
+                .spawn((
+                    NavmeshTileBundle {
+                        grid_coord: GridCoords {
+                            x: room_coords.x + coord.x,
+                            y: room_coords.y + coord.y,
+                        },
+                        walkable: super::Walkable::Walkable,
+                        transform: TransformBundle {
+                            local: Transform::from_xyz(
+                                (coord.x as f32 * INT_TILE_SIZE)
+                                    + (ROOM_SIZE * (room_coords.x as f32)),
+                                (coord.y as f32 * INT_TILE_SIZE)
+                                    + (ROOM_SIZE * (room_coords.y as f32)),
+                                1.,
+                            ),
+                            ..default()
+                        },
+                    },
+                    Aabb {
+                        half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
+                        ..Default::default()
+                    },
+                    AabbGizmo {
+                        color: Some(Color::GREEN),
+                    },
+                    Name::new("Walkable"),
+                ))
+                .id();
+
+            commands.entity(navmesh_entity).add_child(navmesh_tile);
         }
     }
 }
@@ -431,6 +581,7 @@ fn check_room_entry_or_exit(
 fn create_navmesh(mut commands: Commands) {
     commands.spawn(NavmeshBundle {
         name: Name::new("Navmesh"),
+        transform: Transform::from_xyz(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 1.).into(),
         ..default()
     });
 }

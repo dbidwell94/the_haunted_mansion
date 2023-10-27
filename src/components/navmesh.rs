@@ -1,3 +1,4 @@
+use bevy::gizmos::prelude::*;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_ecs_ldtk::prelude::*;
@@ -16,6 +17,7 @@ impl Plugin for NavmeshPlugin {
             .add_systems(Update, update_navmesh)
             .add_systems(Update, listen_for_navmesh_requests)
             .add_systems(Update, rebuild_navmesh)
+            .add_systems(Update, debug_tiles)
             .add_systems(Update, poll_for_pathfinding_completion);
     }
 }
@@ -45,6 +47,7 @@ pub struct NavmeshBundle {
 pub struct NavmeshTileBundle {
     pub walkable: Walkable,
     pub grid_coord: GridCoords,
+    pub transform: TransformBundle,
 }
 
 #[derive(Event)]
@@ -276,4 +279,25 @@ fn pathfind(
         requesting_entity: request.requesting_entity,
         path: Ok(to_return),
     };
+}
+
+fn debug_tiles(
+    mut gizmos: Gizmos,
+    tiles: Query<(&Walkable, &GridCoords)>,
+    input: Res<Input<KeyCode>>,
+) {
+    if input.pressed(KeyCode::Insert) {
+        for (walkable, coords) in &tiles {
+            let color = match walkable {
+                Walkable::NotWalkable => Color::RED,
+                Walkable::Walkable => Color::GREEN,
+            };
+            gizmos.rect_2d(
+                Vec2::new(9. + coords.x as f32, 9. + coords.y as f32),
+                0.,
+                Vec2::new(9., 9.),
+                color,
+            );
+        }
+    }
 }
