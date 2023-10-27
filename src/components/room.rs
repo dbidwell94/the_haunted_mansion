@@ -316,20 +316,23 @@ fn spawn_wall_colliders(
                 continue;
             };
 
+            let transform = Vec2::new(
+                (coord.x as f32 * INT_TILE_SIZE) + (ROOM_SIZE * (room_coords.x as f32)),
+                (coord.y as f32 * INT_TILE_SIZE) + (ROOM_SIZE * (room_coords.y as f32)),
+            );
+
             let navmesh_tile = commands
                 .spawn((
                     NavmeshTileBundle {
                         grid_coord: GridCoords {
-                            x: room_coords.x + coord.x,
-                            y: room_coords.y + coord.y,
+                            x: (transform.x / INT_TILE_SIZE) as i32,
+                            y: (transform.y / INT_TILE_SIZE) as i32,
                         },
                         walkable: super::Walkable::NotWalkable,
                         transform: TransformBundle {
                             local: Transform::from_xyz(
-                                (coord.x as f32 * INT_TILE_SIZE)
-                                    + (ROOM_SIZE * (room_coords.x as f32)),
-                                (coord.y as f32 * INT_TILE_SIZE)
-                                    + (ROOM_SIZE * (room_coords.y as f32)),
+                                transform.x,
+                                transform.y,
                                 1.,
                             ),
                             ..default()
@@ -340,9 +343,9 @@ fn spawn_wall_colliders(
                         half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
                         ..Default::default()
                     },
-                    AabbGizmo {
-                        color: Some(Color::RED),
-                    },
+                    // AabbGizmo {
+                    //     color: Some(Color::RED),
+                    // },
                 ))
                 .id();
 
@@ -425,20 +428,23 @@ fn spawn_room_bounds(
                 continue;
             };
 
+            let transform = Vec2::new(
+                (coord.x as f32 * INT_TILE_SIZE) + (ROOM_SIZE * (room_coords.x as f32)),
+                (coord.y as f32 * INT_TILE_SIZE) + (ROOM_SIZE * (room_coords.y as f32)),
+            );
+
             let navmesh_tile = commands
                 .spawn((
                     NavmeshTileBundle {
-                        grid_coord: GridCoords {
-                            x: room_coords.x + coord.x,
-                            y: room_coords.y + coord.y,
+                        grid_coord:GridCoords {
+                            x: (transform.x / INT_TILE_SIZE) as i32,
+                            y: (transform.y / INT_TILE_SIZE) as i32,
                         },
                         walkable: super::Walkable::Walkable,
                         transform: TransformBundle {
                             local: Transform::from_xyz(
-                                (coord.x as f32 * INT_TILE_SIZE)
-                                    + (ROOM_SIZE * (room_coords.x as f32)),
-                                (coord.y as f32 * INT_TILE_SIZE)
-                                    + (ROOM_SIZE * (room_coords.y as f32)),
+                                transform.x,
+                                transform.y,
                                 1.,
                             ),
                             ..default()
@@ -449,9 +455,9 @@ fn spawn_room_bounds(
                         half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
                         ..Default::default()
                     },
-                    AabbGizmo {
-                        color: Some(Color::GREEN),
-                    },
+                    // AabbGizmo {
+                    //     color: Some(Color::GREEN),
+                    // },
                 ))
                 .id();
 
@@ -495,22 +501,21 @@ fn spawn_walkable_navtiles(
                 continue;
             };
 
+            let transform = Vec2::new(
+                (coord.x as f32 * INT_TILE_SIZE) + (ROOM_SIZE * (room_coords.x as f32)),
+                (coord.y as f32 * INT_TILE_SIZE) + (ROOM_SIZE * (room_coords.y as f32)),
+            );
+
             let navmesh_tile = commands
                 .spawn((
                     NavmeshTileBundle {
                         grid_coord: GridCoords {
-                            x: room_coords.x + coord.x,
-                            y: room_coords.y + coord.y,
+                            x: (transform.x / INT_TILE_SIZE) as i32,
+                            y: (transform.y / INT_TILE_SIZE) as i32,
                         },
                         walkable: super::Walkable::Walkable,
                         transform: TransformBundle {
-                            local: Transform::from_xyz(
-                                (coord.x as f32 * INT_TILE_SIZE)
-                                    + (ROOM_SIZE * (room_coords.x as f32)),
-                                (coord.y as f32 * INT_TILE_SIZE)
-                                    + (ROOM_SIZE * (room_coords.y as f32)),
-                                1.,
-                            ),
+                            local: Transform::from_xyz(transform.x, transform.y, 1.),
                             ..default()
                         },
                     },
@@ -518,9 +523,9 @@ fn spawn_walkable_navtiles(
                         half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
                         ..Default::default()
                     },
-                    AabbGizmo {
-                        color: Some(Color::GREEN),
-                    },
+                    // AabbGizmo {
+                    //     color: Some(Color::GREEN),
+                    // },
                     Name::new("Walkable"),
                 ))
                 .id();

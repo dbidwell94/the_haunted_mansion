@@ -51,8 +51,10 @@ enum CharacterFacing {
     Right = 3,
 }
 
-#[derive(Component)]
-pub struct Player;
+#[derive(Component, Default)]
+pub struct Player {
+    move_path: Vec<GridCoords>,
+}
 
 impl Mul<usize> for CharacterFacing {
     type Output = usize;
@@ -103,7 +105,11 @@ impl Plugin for CharacterPlugin {
             .add_systems(Update, update_character_room_coords)
             .add_systems(
                 Update,
-                request_pathfinding.run_if(resource_changed::<MouseToWorldCoords>()),
+                request_pathfinding.run_if(in_state(GameState::Main)),
+            )
+            .add_systems(
+                Update,
+                check_pathfinding_answer.run_if(in_state(GameState::Main)),
             );
     }
 }
@@ -137,7 +143,7 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
             },
             Name::new("Character"),
             GravityScale(0.),
-            Player,
+            Player::default(),
             CharacterProps {
                 knowledge: rand::thread_rng().gen_range(2..11),
                 might: rand::thread_rng().gen_range(2..11),
@@ -338,12 +344,69 @@ fn request_pathfinding(
             (pos.y / INT_TILE_SIZE) as i32,
         );
 
-        info!("mouse: {mouse_tile_pos:?}, character: {char_position:?}");
-
         pathfinding_request.send(MoveRequest {
             requesting_entity: player_entity,
             move_from: char_position,
             move_to: mouse_tile_pos,
         });
+    }
+}
+
+fn check_pathfinding_answer(
+    mut gizmos: Gizmos,
+    mut pathfinding_event_received: EventReader<NavmeshAnswerEvent>,
+    mut player: Query<(Entity, &mut Player), With<Player>>,
+) {
+    let Ok((player_entity, mut player)) = player.get_single_mut() else {
+        return;
+    };
+
+    for pathfinding_event in &mut pathfinding_event_received {
+        if pathfinding_event.requesting_entity != player_entity {
+            continue;
+        }
+        if let Ok(path) = &pathfinding_event.path {
+            let mut path = path.clone();
+            player.move_path.clear();
+            player.move_path.append(&mut path);
+        } else {
+            player.move_path.clear();
+        }
+    }
+
+    let mut start_option = player
+        .move_path
+        .get(0)
+        .map(|g| Vec2::new(g.x as f32, g.y as f32));
+    let mut end_option = player
+        .move_path
+        .get(1)
+        .map(|g| Vec2::new(g.x as f32, g.y as f32));
+    let mut end_index = 1usize;
+
+    while start_option.is_some() && end_option.is_some() {
+        let start = start_option.unwrap();
+        let end = end_option.unwrap();
+
+        gizmos.line_2d(
+            start * INT_TILE_SIZE,
+            end * INT_TILE_SIZE,
+            Color::Rgba {
+                red: 1.,
+                green: 1.,
+                blue: 1.,
+                alpha: 0.5,
+            },
+        );
+
+        start_option = player
+            .move_path
+            .get(end_index)
+            .map(|g| Vec2::new(g.x as f32, g.y as f32));
+        end_index += 1;
+        end_option = player
+            .move_path
+            .get(end_index)
+            .map(|g| Vec2::new(g.x as f32, g.y as f32));
     }
 }

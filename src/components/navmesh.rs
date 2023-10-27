@@ -3,8 +3,10 @@ use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use bevy_ecs_ldtk::prelude::*;
 use futures_lite::future;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+
+use super::INT_TILE_SIZE;
 
 pub struct NavmeshPlugin;
 
@@ -158,7 +160,7 @@ fn pathfind(
 
             let neighbors = [up, down, left, right]
                 .iter()
-                .filter(|coord| {
+                .filter(|&coord| {
                     grid.contains_key(coord) && grid.get(coord).unwrap() != &Walkable::NotWalkable
                 })
                 .map(|coord| (coord.clone(), 1))
@@ -198,9 +200,12 @@ fn debug_tiles(
                 Walkable::Walkable => Color::GREEN,
             };
             gizmos.rect_2d(
-                Vec2::new(9. + coords.x as f32, 9. + coords.y as f32),
+                Vec2::new(
+                    INT_TILE_SIZE * coords.x as f32 + INT_TILE_SIZE / 2.,
+                    INT_TILE_SIZE * coords.y as f32 + INT_TILE_SIZE / 2.,
+                ),
                 0.,
-                Vec2::new(9., 9.),
+                Vec2::new(INT_TILE_SIZE, INT_TILE_SIZE),
                 color,
             );
         }
