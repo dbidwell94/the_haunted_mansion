@@ -7,9 +7,10 @@ mod navmesh;
 mod room;
 
 pub use navmesh::{
-    MoveRequest, NavmeshAnswerEvent, NavmeshBundle, NavmeshTileBundle, RebuildNavmesh, Walkable,
+    MoveRequest, NavmeshAnswerEvent, NavmeshBundle, NavmeshTileBundle, RebuildNavmesh,
+    Walkable,
 };
-pub use room::Room;
+pub use room::{Room, INT_TILE_SIZE};
 
 pub use character::spawn_character_player;
 pub use room::setup_first_rooms;

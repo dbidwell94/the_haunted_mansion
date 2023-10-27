@@ -50,10 +50,10 @@ pub struct NavmeshTileBundle {
     pub transform: TransformBundle,
 }
 
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub struct NavmeshAnswerEvent {
     pub requesting_entity: Entity,
-    pub path: Result<VecDeque<GridCoords>, ()>,
+    pub path: Result<Vec<GridCoords>, ()>,
 }
 
 #[derive(Component)]
@@ -139,145 +139,50 @@ fn pathfind(
     request: MoveRequest,
     grid: Arc<RwLock<HashMap<GridCoords, Walkable>>>,
 ) -> NavmeshAnswerEvent {
-    use derivative::Derivative;
-    let Ok(grid) = grid.as_ref().read().map_err(|_| ()) else {
+    use pathfinding::prelude::*;
+
+    let Ok(grid) = grid.read() else {
         return NavmeshAnswerEvent {
             path: Err(()),
             requesting_entity: request.requesting_entity,
         };
     };
 
-    #[derive(Derivative, Default, Debug, Clone)]
-    #[derivative(Hash, PartialEq, Eq)]
-    struct AStarNode {
-        /// distance from end node
-        #[derivative(Hash = "ignore", PartialEq = "ignore", Ord = "ignore")]
-        h_cost: f32,
-        /// distance from starting node
-        #[derivative(Hash = "ignore", PartialEq = "ignore", Ord = "ignore")]
-        g_cost: f32,
-        tile: GridCoords,
-        #[derivative(Ord = "ignore")]
-        parent: Option<Box<AStarNode>>,
-    }
+    let result = astar(
+        &request.move_from,
+        |&coord| {
+            let up = GridCoords::new(coord.x, coord.y + 1);
+            let right = GridCoords::new(coord.x + 1, coord.y);
+            let down = GridCoords::new(coord.x, coord.y - 1);
+            let left = GridCoords::new(coord.x - 1, coord.y);
 
-    impl AStarNode {
-        pub fn f_cost(&self) -> f32 {
-            self.g_cost + self.h_cost
-        }
-    }
+            let neighbors = [up, down, left, right]
+                .iter()
+                .filter(|coord| {
+                    grid.contains_key(coord) && grid.get(coord).unwrap() != &Walkable::NotWalkable
+                })
+                .map(|coord| (coord.clone(), 1))
+                .collect::<Vec<_>>();
+            neighbors
+        },
+        |&a| {
+            (Vec2::new(a.x as f32, a.y as f32)
+                - Vec2::new(request.move_to.x as f32, request.move_to.y as f32))
+            .length() as i32
+        },
+        |&p| p == request.move_to,
+    );
 
-    impl PartialOrd for AStarNode {
-        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-            self.f_cost().partial_cmp(&other.f_cost())
-        }
-    }
-
-    impl Ord for AStarNode {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.f_cost().total_cmp(&other.f_cost())
-        }
-    }
-
-    fn get_distance_between(coord1: &GridCoords, coord2: &GridCoords) -> f32 {
-        (Vec2::new(coord1.x as f32, coord1.y as f32) - Vec2::new(coord2.x as f32, coord2.y as f32))
-            .length()
-    }
-
-    let mut open_routes = Vec::<AStarNode>::new();
-    let mut closed_routes = HashSet::<AStarNode>::new();
-
-    fn get_item_reference<'a>(
-        item: &AStarNode,
-        array: &'a mut Vec<AStarNode>,
-    ) -> Option<&'a mut AStarNode> {
-        for reference in array {
-            if reference.tile == item.tile {
-                return Some(reference);
-            }
-        }
-        None
-    }
-
-    let Some(_) = grid.get(&request.move_from) else {
+    let Some((path, _)) = result else {
         return NavmeshAnswerEvent {
             path: Err(()),
             requesting_entity: request.requesting_entity,
         };
     };
-
-    open_routes.push(AStarNode {
-        tile: request.move_from,
-        g_cost: 0.,
-        h_cost: get_distance_between(&request.move_from, &request.move_to),
-        parent: None,
-    });
-
-    let found_tile: Option<AStarNode>;
-
-    loop {
-        open_routes.sort();
-        let Some(current) = open_routes.pop() else {
-            return NavmeshAnswerEvent {
-                path: Err(()),
-                requesting_entity: request.requesting_entity,
-            };
-        };
-        let top = GridCoords::new(current.tile.x, current.tile.y + 1);
-        let right = GridCoords::new(current.tile.x + 1, current.tile.y);
-        let bottom = GridCoords::new(current.tile.x, current.tile.y - 1);
-        let left = GridCoords::new(current.tile.x - 1, current.tile.y);
-
-        if current.tile == request.move_to {
-            found_tile = Some(current);
-            break;
-        }
-
-        for neighbor in [top, right, bottom, left] {
-            let mut neighbor_node = AStarNode {
-                tile: neighbor,
-                ..default()
-            };
-            if closed_routes.contains(&neighbor_node) {
-                continue;
-            }
-            let Some(walkable) = grid.get(&neighbor) else {
-                closed_routes.insert(neighbor_node);
-                continue;
-            };
-            if walkable == &Walkable::NotWalkable {
-                closed_routes.insert(neighbor_node);
-                continue;
-            }
-
-            neighbor_node.g_cost = get_distance_between(&request.move_from, &neighbor);
-            neighbor_node.h_cost = get_distance_between(&neighbor, &request.move_to);
-
-            // todo! Get neighbor from open_routes and change it's parent to be current_node
-
-            if let Some(neighbor_array_ref) = get_item_reference(&neighbor_node, &mut open_routes) {
-                neighbor_array_ref.parent = Some(Box::new(current.clone()));
-            }
-
-            if neighbor_node.f_cost() < current.f_cost() {
-                neighbor_node.parent = Some(Box::new(current.clone()));
-            }
-            open_routes.push(neighbor_node);
-        }
-    }
-
-    let mut to_return = VecDeque::new();
-
-    let mut current = found_tile.map(|v| Box::new(v));
-
-    while let Some(current_node) = current {
-        to_return.push_front(current_node.tile.clone());
-        current = current_node.parent;
-    }
 
     return NavmeshAnswerEvent {
         requesting_entity: request.requesting_entity,
-        path: Ok(to_return),
+        path: Ok(path),
     };
 }
 

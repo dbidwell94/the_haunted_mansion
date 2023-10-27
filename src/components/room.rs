@@ -14,7 +14,7 @@ use derivative::Derivative;
 use lazy_static::lazy_static;
 
 const ROOM_SIZE: f32 = 96.0;
-const INT_TILE_SIZE: f32 = 8.;
+pub const INT_TILE_SIZE: f32 = 8.;
 const INT_GRID_TILE_COUNT_PER_AXIS: i32 = 12;
 
 fn room_location_to_position(location: (i32, i32)) -> Vec2 {

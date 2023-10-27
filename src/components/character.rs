@@ -1,4 +1,5 @@
 use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
+use super::{MoveRequest, NavmeshAnswerEvent, INT_TILE_SIZE};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
@@ -18,6 +19,7 @@ enum CharacterInput {
     Move,
     TogglePause,
     RotateRoom,
+    WalkSelect,
 }
 
 #[derive(Resource, Default)]
@@ -98,7 +100,11 @@ impl Plugin for CharacterPlugin {
                     .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
             )
             .add_systems(Update, mouse_input.run_if(in_state(GameState::Main)))
-            .add_systems(Update, update_character_room_coords);
+            .add_systems(Update, update_character_room_coords)
+            .add_systems(
+                Update,
+                request_pathfinding.run_if(resource_changed::<MouseToWorldCoords>()),
+            );
     }
 }
 
@@ -153,6 +159,7 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
                     )
                     .insert(KeyCode::Escape, CharacterInput::TogglePause)
                     .insert(KeyCode::R, CharacterInput::RotateRoom)
+                    .insert(MouseButton::Left, CharacterInput::WalkSelect)
                     .build(),
                 ..Default::default()
             },
@@ -307,5 +314,36 @@ fn update_character_room_coords(
         } else {
             debug!("Exited a room!");
         }
+    }
+}
+
+fn request_pathfinding(
+    mouse: Res<MouseToWorldCoords>,
+    player_input: Query<(&ActionState<CharacterInput>, &Transform, Entity), With<Player>>,
+    mut pathfinding_request: EventWriter<MoveRequest>,
+) {
+    let Ok((character_input, character_position, player_entity)) = player_input.get_single() else {
+        return;
+    };
+
+    if character_input.just_pressed(CharacterInput::WalkSelect) {
+        let pos = character_position.translation.truncate();
+        let mouse_tile_pos = GridCoords::new(
+            (mouse.0.x / INT_TILE_SIZE) as i32,
+            (mouse.0.y / INT_TILE_SIZE) as i32,
+        );
+
+        let char_position = GridCoords::new(
+            (pos.x / INT_TILE_SIZE) as i32,
+            (pos.y / INT_TILE_SIZE) as i32,
+        );
+
+        info!("mouse: {mouse_tile_pos:?}, character: {char_position:?}");
+
+        pathfinding_request.send(MoveRequest {
+            requesting_entity: player_entity,
+            move_from: char_position,
+            move_to: mouse_tile_pos,
+        });
     }
 }
