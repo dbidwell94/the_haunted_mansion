@@ -19,9 +19,9 @@ where
 {
     fn get_either_mut(&mut self, this: Entity, otherwise: Entity) -> Option<Element::Item<'_>> {
         let to_query: Entity;
-        if let Ok(_) = self.get(this) {
+        if self.get(this).is_ok() {
             to_query = this;
-        } else if let Ok(_) = self.get(otherwise) {
+        } else if self.get(otherwise).is_ok() {
             to_query = otherwise;
         } else {
             return None;
@@ -51,9 +51,9 @@ where
 {
     fn get_either(&self, this: Entity, otherwise: Entity) -> Option<Element::Item<'_>> {
         let to_query: Entity;
-        if let Ok(_) = self.get(this) {
+        if self.get(this).is_ok() {
             to_query = this;
-        } else if let Ok(_) = self.get(otherwise) {
+        } else if self.get(otherwise).is_ok() {
             to_query = otherwise;
         } else {
             return None;
@@ -69,10 +69,10 @@ where
     ) -> Option<(Element::Item<'_>, Entity)> {
         let to_query: Entity;
         let other: Entity;
-        if let Ok(_) = self.get(this) {
+        if self.get(this).is_ok() {
             to_query = this;
             other = otherwise;
-        } else if let Ok(_) = self.get(otherwise) {
+        } else if self.get(otherwise).is_ok() {
             to_query = otherwise;
             other = this;
         } else {
