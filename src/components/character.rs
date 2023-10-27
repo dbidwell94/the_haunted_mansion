@@ -1,9 +1,10 @@
-use super::room::setup_first_rooms;
+use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_asset_loader::prelude::*;
+use bevy_ecs_ldtk::GridCoords;
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::ops::Mul;
@@ -36,7 +37,7 @@ enum CharacterFacing {
 }
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 impl Mul<usize> for CharacterFacing {
     type Output = usize;
@@ -77,7 +78,8 @@ impl Plugin for CharacterPlugin {
                 Update,
                 listen_for_pause
                     .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
-            );
+            )
+            .add_systems(Update, update_character_room_coords);
     }
 }
 
@@ -93,7 +95,6 @@ pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
     camera_bundle.camera_2d.clear_color = ClearColorConfig::Custom(Color::BLACK);
 
     let camera_entity = commands.spawn(camera_bundle).id();
-
     commands
         .spawn((
             SpriteSheetBundle {
@@ -110,7 +111,9 @@ pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
                 facing: CharacterFacing::Right,
             },
             Name::new("Character"),
+            GravityScale(0.),
             Player,
+            GridCoords { x: 0, y: 0 },
             InputManagerBundle::<CharacterInput> {
                 input_map: InputMap::default()
                     .insert(DualAxis::left_stick(), CharacterInput::Move)
@@ -128,7 +131,10 @@ pub fn spawn_character(mut commands: Commands, asset: Res<CharacterWalk>) {
                     .build(),
                 ..Default::default()
             },
-            KinematicCharacterController::default(),
+            RigidBody::Dynamic,
+            Velocity::default(),
+            LockedAxes::ROTATION_LOCKED,
+            ActiveEvents::COLLISION_EVENTS,
             Collider::compound(vec![(Vec2::new(0., -10.), 0., Collider::cuboid(4., 2.))]),
         ))
         .add_child(camera_entity);
@@ -193,16 +199,10 @@ fn update_character_animation(
 }
 
 fn process_player_input(
-    mut animation_query: Query<
-        (
-            &mut KinematicCharacterController,
-            &ActionState<CharacterInput>,
-        ),
-        With<Player>,
-    >,
+    mut animation_query: Query<(&mut Velocity, &ActionState<CharacterInput>), With<Player>>,
     time: Res<Time>,
 ) {
-    let Ok((mut char_controller, input)) = animation_query.get_single_mut() else {
+    let Ok((mut velocity, input)) = animation_query.get_single_mut() else {
         return;
     };
 
@@ -217,11 +217,11 @@ fn process_player_input(
     } else if input.y().abs() > input.x().abs() {
         walk_transform = Vec2::new(0., input.y());
     } else {
+        velocity.linvel = Vec2::ZERO;
         return;
     }
 
-    char_controller.translation =
-        Some(walk_transform * time.delta_seconds() * CHARACTER_MOVE_SPEED);
+    velocity.linvel = walk_transform * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
 }
 
 fn listen_for_pause(
@@ -242,5 +242,27 @@ fn listen_for_pause(
         next_game_state.set(GameState::Paused);
     } else {
         next_game_state.set(GameState::Main);
+    }
+}
+
+fn update_character_room_coords(
+    mut room_changed_event: EventReader<RoomBoundsHitEvent>,
+    mut character_query: Query<&mut GridCoords, (With<Player>, Without<Room>)>,
+    room_query: Query<&GridCoords, (With<Room>, Without<Player>)>,
+) {
+    for evt in &mut room_changed_event {
+        let Ok(mut player_grid_coords) = character_query.get_mut(evt.character_entity) else {
+            continue;
+        };
+        let Ok(room_grid_coords) = room_query.get(evt.room_entity) else {
+            continue;
+        };
+        if evt.movement_type == RoomEnterExit::Enter {
+            player_grid_coords.x = room_grid_coords.x;
+            player_grid_coords.y = room_grid_coords.y;
+            info!("Entered new room!");
+        } else {
+            info!("Exited a room!");
+        }
     }
 }

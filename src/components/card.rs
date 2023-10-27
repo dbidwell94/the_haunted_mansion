@@ -1,21 +1,14 @@
 use crate::events::GameEvent;
 use bevy::prelude::*;
 
-#[derive(Default, Clone, Copy, Hash, PartialEq, Debug, Reflect)]
-pub enum CardTypeNoValue {
-    Event,
-    Omen,
-    Item,
-    #[default]
-    None,
-}
-
+#[derive(Reflect, Debug, Clone)]
 pub enum CardType {
     Event(EventCard),
     Omen(OmenCard),
     Item(ItemCard),
 }
 
+#[derive(Reflect, Debug, Clone)]
 pub enum ItemCard {
     RabbitsFoot,
     AngelsFeather,
@@ -41,8 +34,10 @@ pub enum ItemCard {
     Mirror,
 }
 
+#[derive(Reflect, Debug, Clone)]
 pub enum EventCard {}
 
+#[derive(Reflect, Debug, Clone)]
 pub enum OmenCard {
     Idol,
     Armor,

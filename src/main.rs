@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    window::{CursorGrabMode, PrimaryWindow},
+};
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_embedded_assets::EmbeddedAssetPlugin;
@@ -7,6 +10,7 @@ use bevy_rapier2d::prelude::*;
 
 mod components;
 mod events;
+mod prelude;
 mod ui;
 
 #[derive(Default, Eq, PartialEq, Debug, Hash, Clone, States)]
@@ -41,8 +45,8 @@ fn main() {
             #[cfg(debug_assertions)]
             WorldInspectorPlugin::new(),
             RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0),
-            #[cfg(debug_assertions)]
-            RapierDebugRenderPlugin::default(),
+            // #[cfg(debug_assertions)]
+            // RapierDebugRenderPlugin::default(),
         ))
         .add_plugins((components::ComponentPlugin, crate::ui::UiPlugin))
         .add_systems(
@@ -52,9 +56,27 @@ fn main() {
                 .after(components::setup_first_rooms)
                 .after(components::spawn_character),
         )
+        .add_systems(OnEnter(GameState::Main), grab_cursor)
+        .add_systems(OnExit(GameState::Main), release_cursor)
         .run();
 }
 
 fn start_game(mut game_state: ResMut<NextState<GameState>>) {
     game_state.set(GameState::Main);
+}
+
+fn grab_cursor(mut window: Query<&mut Window, With<PrimaryWindow>>) {
+    let Ok(mut window) = window.get_single_mut() else {
+        return;
+    };
+
+    window.cursor.grab_mode = CursorGrabMode::Confined;
+}
+
+fn release_cursor(mut window: Query<&mut Window, With<PrimaryWindow>>) {
+    let Ok(mut window) = window.get_single_mut() else {
+        return;
+    };
+
+    window.cursor.grab_mode = CursorGrabMode::None;
 }
