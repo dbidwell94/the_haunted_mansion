@@ -17,7 +17,6 @@ const CHARACTER_MOVE_SPEED: f32 = 45.0;
 
 #[derive(Actionlike, Reflect, Clone)]
 enum CharacterInput {
-    Move,
     TogglePause,
     RotateRoom,
     WalkSelect,
@@ -98,10 +97,6 @@ impl Plugin for CharacterPlugin {
             )
             .add_systems(
                 Update,
-                process_player_input.run_if(in_state(GameState::Main)),
-            )
-            .add_systems(
-                Update,
                 listen_for_pause
                     .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
             )
@@ -158,16 +153,6 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
             GridCoords { x: 0, y: 0 },
             InputManagerBundle::<CharacterInput> {
                 input_map: InputMap::default()
-                    .insert(DualAxis::left_stick(), CharacterInput::Move)
-                    .insert(
-                        VirtualDPad {
-                            down: KeyCode::S.into(),
-                            left: KeyCode::A.into(),
-                            right: KeyCode::D.into(),
-                            up: KeyCode::W.into(),
-                        },
-                        CharacterInput::Move,
-                    )
                     .insert(KeyCode::Escape, CharacterInput::TogglePause)
                     .insert(KeyCode::R, CharacterInput::RotateRoom)
                     .insert(MouseButton::Left, CharacterInput::WalkSelect)
@@ -236,32 +221,6 @@ fn update_character_animation(
             }
         }
     }
-}
-
-fn process_player_input(
-    mut animation_query: Query<(&mut Velocity, &ActionState<CharacterInput>), With<Player>>,
-    time: Res<Time>,
-) {
-    let Ok((mut velocity, input)) = animation_query.get_single_mut() else {
-        return;
-    };
-
-    let Some(input) = input.clamped_axis_pair(CharacterInput::Move) else {
-        return;
-    };
-
-    let walk_transform;
-
-    if input.x().abs() > input.y().abs() {
-        walk_transform = Vec2::new(input.x(), 0.);
-    } else if input.y().abs() > input.x().abs() {
-        walk_transform = Vec2::new(0., input.y());
-    } else {
-        velocity.linvel = Vec2::ZERO;
-        return;
-    }
-
-    // velocity.linvel = walk_transform * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
 }
 
 fn listen_for_pause(
