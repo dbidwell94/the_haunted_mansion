@@ -139,7 +139,7 @@ pub enum DoorLocation {
 #[derive(Derivative, Component, Debug, Clone, Reflect)]
 #[derivative(Hash, Eq, PartialEq)]
 pub struct Room {
-    name: String,
+    pub name: String,
     iid: String,
     #[derivative(Hash = "ignore")]
     #[derivative(PartialEq = "ignore")]
@@ -147,7 +147,7 @@ pub struct Room {
     allowed_copies: u8,
     #[derivative(Hash = "ignore")]
     #[derivative(PartialEq = "ignore")]
-    card: Option<CardType>,
+    pub card: Option<CardType>,
 }
 
 pub struct RoomPlugin;

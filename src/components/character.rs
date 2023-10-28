@@ -111,7 +111,8 @@ impl Plugin for CharacterPlugin {
                 Update,
                 check_pathfinding_answer.run_if(in_state(GameState::Main)),
             )
-            .add_systems(Update, move_player.run_if(in_state(GameState::Main)));
+            .add_systems(Update, move_player.run_if(in_state(GameState::Main)))
+            .add_systems(OnExit(GameState::Main), on_main_exit);
     }
 }
 
@@ -176,6 +177,14 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
         ActiveEvents::COLLISION_EVENTS,
         Collider::compound(vec![(Vec2::new(0., -5.), 0., Collider::cuboid(4., 2.))]),
     ));
+}
+
+fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {
+    let Ok(mut player_velocity) = player_velocity.get_single_mut() else {
+        return;
+    };
+
+    player_velocity.linvel = Vec2::ZERO;
 }
 
 fn update_character_animation(
@@ -323,12 +332,16 @@ fn update_character_room_coords(
         let Ok(room_grid_coords) = room_query.get(evt.room_entity) else {
             continue;
         };
+
+        let ent = evt.character_entity;
+        let room = &evt.room.name;
+
         if evt.movement_type == RoomEnterExit::Enter {
             player_grid_coords.x = room_grid_coords.x;
             player_grid_coords.y = room_grid_coords.y;
-            info!("Entered new room!");
+            info!("Entity {:?} Entered room {}", ent, room);
         } else {
-            info!("Exited a room!");
+            info!("Entity {:?} Exited room {}", ent, room);
         }
     }
 }

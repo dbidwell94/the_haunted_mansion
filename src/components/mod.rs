@@ -6,6 +6,7 @@ mod card;
 mod character;
 mod navmesh;
 mod room;
+mod network;
 
 pub use character::spawn_character_player;
 pub use navmesh::{
@@ -24,6 +25,7 @@ impl Plugin for ComponentPlugin {
             character::CharacterPlugin,
             navmesh::NavmeshPlugin,
             camera::CameraPlugin,
+            network::NetworkPlugin
         ));
     }
 }
