@@ -26,11 +26,11 @@ impl Plugin for NavmeshPlugin {
 
 #[derive(Resource, Default)]
 struct MeshGrid {
-    grids_and_weights: Arc<RwLock<HashMap<GridCoords, Walkable>>>,
+    grids_and_weights: Arc<RwLock<HashMap<GridCoords, WalkableState>>>,
 }
 
 #[derive(Component, Clone, Eq, PartialEq)]
-pub enum Walkable {
+pub enum WalkableState {
     NotWalkable,
     Walkable,
 }
@@ -47,7 +47,7 @@ pub struct NavmeshBundle {
 
 #[derive(Bundle)]
 pub struct NavmeshTileBundle {
-    pub walkable: Walkable,
+    pub walkable: WalkableState,
     pub grid_coord: GridCoords,
     pub transform: TransformBundle,
 }
@@ -72,7 +72,10 @@ pub struct MoveRequest {
 pub struct RebuildNavmesh;
 
 fn update_navmesh(
-    changed_walkables: Query<(&GridCoords, &Walkable), Or<(Added<Walkable>, Changed<Walkable>)>>,
+    changed_walkables: Query<
+        (&GridCoords, &WalkableState),
+        Or<(Added<WalkableState>, Changed<WalkableState>)>,
+    >,
     navmesh_grid: ResMut<MeshGrid>,
 ) {
     for (coords, walkable) in &changed_walkables {
@@ -86,7 +89,7 @@ fn update_navmesh(
 
 fn rebuild_navmesh(
     mut reset_request: EventReader<RebuildNavmesh>,
-    walkables: Query<(&GridCoords, &Walkable), With<Walkable>>,
+    walkables: Query<(&GridCoords, &WalkableState), With<WalkableState>>,
     navmesh_grid: ResMut<MeshGrid>,
 ) {
     let mut reset = false;
@@ -139,7 +142,7 @@ fn poll_for_pathfinding_completion(
 /// A* implementation
 fn pathfind(
     request: MoveRequest,
-    grid: Arc<RwLock<HashMap<GridCoords, Walkable>>>,
+    grid: Arc<RwLock<HashMap<GridCoords, WalkableState>>>,
 ) -> NavmeshAnswerEvent {
     use pathfinding::prelude::*;
 
@@ -161,7 +164,8 @@ fn pathfind(
             let neighbors = [up, down, left, right]
                 .iter()
                 .filter(|&coord| {
-                    grid.contains_key(coord) && grid.get(coord).unwrap() != &Walkable::NotWalkable
+                    grid.contains_key(coord)
+                        && grid.get(coord).unwrap() != &WalkableState::NotWalkable
                 })
                 .map(|coord| (coord.clone(), 1))
                 .collect::<Vec<_>>();
@@ -190,14 +194,14 @@ fn pathfind(
 
 fn debug_tiles(
     mut gizmos: Gizmos,
-    tiles: Query<(&Walkable, &GridCoords)>,
+    tiles: Query<(&WalkableState, &GridCoords)>,
     input: Res<Input<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Insert) {
         for (walkable, coords) in &tiles {
             let color = match walkable {
-                Walkable::NotWalkable => Color::RED,
-                Walkable::Walkable => Color::GREEN,
+                WalkableState::NotWalkable => Color::RED,
+                WalkableState::Walkable => Color::GREEN,
             };
             gizmos.rect_2d(
                 Vec2::new(

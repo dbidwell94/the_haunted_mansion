@@ -12,6 +12,7 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy_rapier2d::prelude::*;
 use derivative::Derivative;
 use lazy_static::lazy_static;
+use ldtk::*;
 
 const ROOM_SIZE: f32 = 96.0;
 pub const INT_TILE_SIZE: f32 = 8.;
@@ -47,6 +48,40 @@ lazy_static! {
     ];
 }
 
+mod ldtk {
+    use bevy::prelude::*;
+    use bevy_ecs_ldtk::prelude::*;
+    #[derive(Component, Default)]
+    pub struct NonWalkable;
+
+    #[derive(LdtkIntCell, Bundle)]
+    pub struct NonWalkableBundle {
+        non_walkable: NonWalkable,
+    }
+
+    #[derive(Component, Default)]
+    pub struct RoomBound;
+
+    #[derive(Component)]
+    pub struct RoomBoundComponent;
+
+    #[derive(LdtkIntCell, Bundle)]
+    pub struct RoomBoundBundle {
+        room_bound: RoomBound,
+    }
+
+    #[derive(Component, Default)]
+    pub struct Walkable;
+
+    #[derive(Component)]
+    pub struct WalkableComponent;
+
+    #[derive(LdtkIntCell, Bundle)]
+    pub struct WalkableBundle {
+        walkable: Walkable,
+    }
+}
+
 #[derive(PartialEq, Hash, Eq)]
 pub enum RoomEnterExit {
     Enter,
@@ -66,36 +101,6 @@ pub struct RoomBoundsHitEvent {
 pub struct RoomAssets {
     #[asset(path = "ldtk/haunted.ldtk")]
     ldtk_asset: Handle<LdtkAsset>,
-}
-
-#[derive(Component, Default)]
-pub struct NonWalkable;
-
-#[derive(LdtkIntCell, Bundle)]
-pub struct NonWalkableBundle {
-    non_walkable: NonWalkable,
-}
-
-#[derive(Component, Default)]
-pub struct RoomBound;
-
-#[derive(Component)]
-struct RoomBoundComponent;
-
-#[derive(LdtkIntCell, Bundle)]
-pub struct RoomBoundBundle {
-    room_bound: RoomBound,
-}
-
-#[derive(Component, Default)]
-struct Walkable;
-
-#[derive(Component)]
-struct WalkableComponent;
-
-#[derive(LdtkIntCell, Bundle)]
-struct WalkableBundle {
-    walkable: Walkable,
 }
 
 #[repr(i32)]
@@ -328,13 +333,9 @@ fn spawn_wall_colliders(
                             x: (transform.x / INT_TILE_SIZE) as i32,
                             y: (transform.y / INT_TILE_SIZE) as i32,
                         },
-                        walkable: super::Walkable::NotWalkable,
+                        walkable: super::WalkableState::NotWalkable,
                         transform: TransformBundle {
-                            local: Transform::from_xyz(
-                                transform.x,
-                                transform.y,
-                                1.,
-                            ),
+                            local: Transform::from_xyz(transform.x, transform.y, 1.),
                             ..default()
                         },
                     },
@@ -436,17 +437,13 @@ fn spawn_room_bounds(
             let navmesh_tile = commands
                 .spawn((
                     NavmeshTileBundle {
-                        grid_coord:GridCoords {
+                        grid_coord: GridCoords {
                             x: (transform.x / INT_TILE_SIZE) as i32,
                             y: (transform.y / INT_TILE_SIZE) as i32,
                         },
-                        walkable: super::Walkable::Walkable,
+                        walkable: super::WalkableState::Walkable,
                         transform: TransformBundle {
-                            local: Transform::from_xyz(
-                                transform.x,
-                                transform.y,
-                                1.,
-                            ),
+                            local: Transform::from_xyz(transform.x, transform.y, 1.),
                             ..default()
                         },
                     },
@@ -513,7 +510,7 @@ fn spawn_walkable_navtiles(
                             x: (transform.x / INT_TILE_SIZE) as i32,
                             y: (transform.y / INT_TILE_SIZE) as i32,
                         },
-                        walkable: super::Walkable::Walkable,
+                        walkable: super::WalkableState::Walkable,
                         transform: TransformBundle {
                             local: Transform::from_xyz(transform.x, transform.y, 1.),
                             ..default()

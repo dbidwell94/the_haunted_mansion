@@ -8,7 +8,7 @@ mod room;
 
 pub use navmesh::{
     MoveRequest, NavmeshAnswerEvent, NavmeshBundle, NavmeshTileBundle, RebuildNavmesh,
-    Walkable,
+    WalkableState,
 };
 pub use room::{Room, INT_TILE_SIZE};
 
