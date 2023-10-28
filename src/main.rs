@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    window::{CursorGrabMode, PrimaryWindow},
+    window::{CursorGrabMode, PrimaryWindow, PresentMode, WindowMode},
 };
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
@@ -36,6 +36,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "The Haunted Mansion".into(),
+                        mode: WindowMode::BorderlessFullscreen,
                         ..default()
                     }),
                     ..default()

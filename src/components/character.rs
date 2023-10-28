@@ -1,8 +1,10 @@
+use super::camera::PlayerCamera;
 use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
 use super::{MoveRequest, NavmeshAnswerEvent, INT_TILE_SIZE};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_asset_loader::prelude::*;
@@ -16,10 +18,12 @@ use std::ops::Mul;
 const CHARACTER_MOVE_SPEED: f32 = 45.0;
 
 #[derive(Actionlike, Reflect, Clone)]
-enum CharacterInput {
+pub enum CharacterInput {
     TogglePause,
     RotateRoom,
     WalkSelect,
+    SelectObject,
+    MoveCamera,
 }
 
 #[derive(Resource, Default)]
@@ -74,9 +78,6 @@ struct AnimationTimer {
     pub facing: CharacterFacing,
 }
 
-#[derive(Component)]
-struct PlayerCamera;
-
 pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
@@ -125,47 +126,56 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
     camera_bundle.projection.scale = 0.25;
     camera_bundle.camera_2d.clear_color = ClearColorConfig::Custom(Color::BLACK);
 
-    let camera_entity = commands.spawn(camera_bundle).insert(PlayerCamera).id();
-    commands
-        .spawn((
-            SpriteSheetBundle {
-                texture_atlas: asset.walking.clone(),
-                sprite,
-                transform: Transform::from_xyz(48., 48., 2.),
-                ..default()
-            },
-            AnimationTimer {
-                timer: Timer::from_seconds(0.125 * 0.5, TimerMode::Repeating),
-                frame_count: 9,
-                walking: false,
-                cols: 9,
-                facing: CharacterFacing::Right,
-            },
-            Name::new("Character"),
-            GravityScale(0.),
-            Player::default(),
-            CharacterProps {
-                knowledge: rand::thread_rng().gen_range(2..11),
-                might: rand::thread_rng().gen_range(2..11),
-                sanity: rand::thread_rng().gen_range(2..11),
-                speed: rand::thread_rng().gen_range(2..11),
-            },
-            GridCoords { x: 0, y: 0 },
-            InputManagerBundle::<CharacterInput> {
-                input_map: InputMap::default()
-                    .insert(KeyCode::Escape, CharacterInput::TogglePause)
-                    .insert(KeyCode::R, CharacterInput::RotateRoom)
-                    .insert(MouseButton::Left, CharacterInput::WalkSelect)
-                    .build(),
-                ..Default::default()
-            },
-            RigidBody::Dynamic,
-            Velocity::default(),
-            LockedAxes::ROTATION_LOCKED,
-            ActiveEvents::COLLISION_EVENTS,
-            // Collider::compound(vec![(Vec2::new(0., -10.), 0., Collider::cuboid(4., 2.))]),
-        ))
-        .add_child(camera_entity);
+    commands.spawn((
+        SpriteSheetBundle {
+            texture_atlas: asset.walking.clone(),
+            sprite,
+            transform: Transform::from_xyz(48., 48., 2.),
+            ..default()
+        },
+        AnimationTimer {
+            timer: Timer::from_seconds(0.125 * 0.5, TimerMode::Repeating),
+            frame_count: 9,
+            walking: false,
+            cols: 9,
+            facing: CharacterFacing::Right,
+        },
+        Name::new("Character"),
+        GravityScale(0.),
+        Player::default(),
+        CharacterProps {
+            knowledge: rand::thread_rng().gen_range(2..11),
+            might: rand::thread_rng().gen_range(2..11),
+            sanity: rand::thread_rng().gen_range(2..11),
+            speed: rand::thread_rng().gen_range(2..11),
+        },
+        GridCoords { x: 0, y: 0 },
+        InputManagerBundle::<CharacterInput> {
+            input_map: InputMap::default()
+                .insert(KeyCode::Escape, CharacterInput::TogglePause)
+                .insert(KeyCode::R, CharacterInput::RotateRoom)
+                .insert(MouseButton::Right, CharacterInput::WalkSelect)
+                .insert(MouseButton::Left, CharacterInput::SelectObject)
+                .insert(
+                    VirtualDPad {
+                        up: KeyCode::W.into(),
+                        down: KeyCode::S.into(),
+                        left: KeyCode::A.into(),
+                        right: KeyCode::D.into(),
+                    },
+                    CharacterInput::MoveCamera,
+                )
+                .build(),
+            ..Default::default()
+        },
+        RigidBody::Dynamic,
+        Velocity::default(),
+        Anchor::TopCenter,
+        Sensor,
+        LockedAxes::ROTATION_LOCKED,
+        ActiveEvents::COLLISION_EVENTS,
+        Collider::compound(vec![(Vec2::new(0., -5.), 0., Collider::cuboid(4., 2.))]),
+    ));
 }
 
 fn update_character_animation(
@@ -316,9 +326,9 @@ fn update_character_room_coords(
         if evt.movement_type == RoomEnterExit::Enter {
             player_grid_coords.x = room_grid_coords.x;
             player_grid_coords.y = room_grid_coords.y;
-            debug!("Entered new room!");
+            info!("Entered new room!");
         } else {
-            debug!("Exited a room!");
+            info!("Exited a room!");
         }
     }
 }
