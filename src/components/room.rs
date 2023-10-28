@@ -193,74 +193,81 @@ struct RoomBundle {
     location: GridCoords,
 }
 
+fn spawn_room(
+    commands: &mut Commands,
+    room_assets: &Res<RoomAssets>,
+    counter: &mut ResMut<RoomCounter>,
+    put_at: GridCoords,
+    room: Room,
+    z_index: i8,
+) {
+    let ldtk_handle = &room_assets.ldtk_asset;
+    let world_pos = room_location_to_position((put_at.x, put_at.y));
+
+    commands.spawn(RoomBundle {
+        ldtk: LdtkWorldBundle {
+            ldtk_handle: ldtk_handle.clone(),
+            level_set: LevelSet::from_iid(room.iid.to_owned()),
+            transform: Transform::from_xyz(world_pos.x, world_pos.y, -1.),
+            ..default()
+        },
+        name: Name::new(room.name.to_owned()),
+        room: room.to_owned(),
+        location: put_at,
+    });
+
+    if counter.rooms.contains_key(&room) {
+        *counter.rooms.get_mut(&room).unwrap() += 1;
+    } else {
+        counter.rooms.insert(room.to_owned(), 1);
+    }
+
+    counter
+        .filled_tiles
+        .insert((put_at.x, put_at.y, z_index), room.to_owned());
+}
+
 pub fn setup_first_rooms(
     mut commands: Commands,
     room_assets: Res<RoomAssets>,
     mut room_counter: ResMut<RoomCounter>,
 ) {
     let entryway = LDTK_ROOMS.iter().find(|room| room.name == "Entryway");
-    let entryway_location = room_location_to_position((0, 0));
+    let entryway_location = GridCoords::new(0, 0);
     let hallway = LDTK_ROOMS.iter().find(|room| room.name == "Hallway-2x0y");
-    let hallway_location = room_location_to_position((1, 0));
+    let hallway_location = GridCoords::new(1, 0);
     let hallway_4way = LDTK_ROOMS.iter().find(|room| room.name == "Hallway-2x2y");
-    let hallway_4way_location = room_location_to_position((1, 1));
+    let hallway_4way_location = GridCoords::new(2, 0);
 
     let (Some(entryway), Some(hallway), Some(hallway_4way)) = (entryway, hallway, hallway_4way)
     else {
         panic!("Cannot find the first rooms: 'entryway' -- 'hallway-2x0y'");
     };
 
-    let ldtk_handle = &room_assets.ldtk_asset;
-
-    commands.spawn(RoomBundle {
-        ldtk: LdtkWorldBundle {
-            ldtk_handle: ldtk_handle.clone(),
-            level_set: LevelSet::from_iid(entryway.iid.to_owned()),
-            transform: Transform::from_xyz(entryway_location.x, entryway_location.y, -1.),
-            ..default()
-        },
-        name: Name::new(entryway.name.to_owned()),
-        room: entryway.to_owned(),
-        location: GridCoords { x: 0, y: 0 },
-    });
-
-    commands.spawn(RoomBundle {
-        ldtk: LdtkWorldBundle {
-            ldtk_handle: ldtk_handle.clone(),
-            level_set: LevelSet::from_iid(hallway.iid.to_owned()),
-            transform: Transform::from_xyz(hallway_location.x, hallway_location.y, -1.),
-            ..default()
-        },
-        name: Name::new(hallway.name.to_owned()),
-        room: hallway.to_owned(),
-        location: GridCoords { x: 1, y: 0 },
-    });
-
-    commands.spawn(RoomBundle {
-        ldtk: LdtkWorldBundle {
-            ldtk_handle: ldtk_handle.clone(),
-            level_set: LevelSet::from_iid(hallway_4way.iid.to_owned()),
-            transform: Transform::from_xyz(hallway_4way_location.x, hallway_4way_location.y, -1.),
-            ..default()
-        },
-        name: Name::new(hallway_4way.name.to_owned()),
-        room: hallway_4way.to_owned(),
-        location: GridCoords { x: 1, y: 1 },
-    });
-
-    room_counter.rooms.insert(entryway.to_owned(), 1);
-    room_counter.rooms.insert(hallway.to_owned(), 1);
-    room_counter.rooms.insert(hallway_4way.to_owned(), 1);
-
-    room_counter
-        .filled_tiles
-        .insert((0, 0, 0), entryway.to_owned());
-    room_counter
-        .filled_tiles
-        .insert((1, 0, 0), hallway.to_owned());
-    room_counter
-        .filled_tiles
-        .insert((1, 1, 0), hallway_4way.to_owned());
+    spawn_room(
+        &mut commands,
+        &room_assets,
+        &mut room_counter,
+        entryway_location,
+        entryway.clone(),
+        0,
+    );
+    spawn_room(
+        &mut commands,
+        &room_assets,
+        &mut room_counter,
+        hallway_location,
+        hallway.clone(),
+        0,
+    );
+    spawn_room(
+        &mut commands,
+        &room_assets,
+        &mut room_counter,
+        hallway_4way_location,
+        hallway_4way.clone(),
+        0,
+    );
 }
 
 fn spawn_wall_colliders(

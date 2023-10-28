@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    window::{CursorGrabMode, PrimaryWindow, PresentMode, WindowMode},
+    window::{CursorGrabMode, PrimaryWindow, WindowMode},
 };
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
