@@ -10,6 +10,7 @@ use bevy_ecs_ldtk::GridCoords;
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::prelude::*;
+use std::collections::VecDeque;
 use std::ops::Mul;
 
 const CHARACTER_MOVE_SPEED: f32 = 45.0;
@@ -53,7 +54,8 @@ enum CharacterFacing {
 
 #[derive(Component, Default)]
 pub struct Player {
-    move_path: Vec<GridCoords>,
+    move_path: VecDeque<GridCoords>,
+    move_to: Option<GridCoords>,
 }
 
 impl Mul<usize> for CharacterFacing {
@@ -90,7 +92,9 @@ impl Plugin for CharacterPlugin {
             )
             .add_systems(
                 Update,
-                update_character_animation.run_if(in_state(GameState::Main)),
+                update_character_animation
+                    .after(move_player)
+                    .run_if(in_state(GameState::Main)),
             )
             .add_systems(
                 Update,
@@ -110,7 +114,8 @@ impl Plugin for CharacterPlugin {
             .add_systems(
                 Update,
                 check_pathfinding_answer.run_if(in_state(GameState::Main)),
-            );
+            )
+            .add_systems(Update, move_player.run_if(in_state(GameState::Main)));
     }
 }
 
@@ -173,42 +178,39 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
             Velocity::default(),
             LockedAxes::ROTATION_LOCKED,
             ActiveEvents::COLLISION_EVENTS,
-            Collider::compound(vec![(Vec2::new(0., -10.), 0., Collider::cuboid(4., 2.))]),
+            // Collider::compound(vec![(Vec2::new(0., -10.), 0., Collider::cuboid(4., 2.))]),
         ))
         .add_child(camera_entity);
 }
 
 fn update_character_animation(
-    mut sprites: Query<(
-        &mut TextureAtlasSprite,
-        &mut AnimationTimer,
-        &ActionState<CharacterInput>,
-    )>,
+    mut sprites: Query<(&mut TextureAtlasSprite, &mut AnimationTimer, Entity)>,
+    movement: Query<(&Velocity, &Player), With<Player>>,
     time: Res<Time>,
 ) {
-    for (mut sprite, mut animation, input) in &mut sprites {
+    for (mut sprite, mut animation, player_entity) in &mut sprites {
+        let Ok((velocity, player)) = movement.get(player_entity) else {
+            continue;
+        };
+
         let mut temp_facing = Option::<CharacterFacing>::None;
 
-        if let Some(movement) = input.axis_pair(CharacterInput::Move) {
-            animation.walking = true;
+        let velocity = velocity.linvel.normalize();
 
-            if movement.x().abs() > movement.y().abs() {
-                if movement.x() > 0. {
-                    temp_facing = Some(CharacterFacing::Right);
-                } else {
-                    temp_facing = Some(CharacterFacing::Left);
-                }
-            } else if movement.y().abs() > movement.x().abs() {
-                if movement.y() > 0. {
-                    temp_facing = Some(CharacterFacing::Up);
-                } else {
-                    temp_facing = Some(CharacterFacing::Down);
-                }
+        animation.walking = player.move_path.len() > 0;
+
+        if velocity.x.abs() > velocity.y.abs() {
+            if velocity.x > 0. {
+                temp_facing = Some(CharacterFacing::Right);
             } else {
-                animation.walking = false;
+                temp_facing = Some(CharacterFacing::Left);
             }
-        } else {
-            animation.walking = false;
+        } else if velocity.y.abs() > velocity.x.abs() {
+            if velocity.y > 0. {
+                temp_facing = Some(CharacterFacing::Up);
+            } else {
+                temp_facing = Some(CharacterFacing::Down);
+            }
         }
 
         let facing_changed = if let Some(temp_facing) = temp_facing {
@@ -259,7 +261,7 @@ fn process_player_input(
         return;
     }
 
-    velocity.linvel = walk_transform * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
+    // velocity.linvel = walk_transform * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
 }
 
 fn listen_for_pause(
@@ -301,6 +303,45 @@ fn mouse_input(
     }
 }
 
+fn move_player(
+    mut player_query: Query<(&mut Velocity, &mut Player, &Transform), With<Player>>,
+    time: Res<Time>,
+) {
+    let Ok((mut velocity, mut player, player_transform)) = player_query.get_single_mut() else {
+        return;
+    };
+
+    let current_grid = GridCoords::new(
+        (player_transform.translation.x / INT_TILE_SIZE).round() as i32,
+        (player_transform.translation.y / INT_TILE_SIZE).round() as i32,
+    );
+
+    if player.move_to.is_none() && player.move_path.len() > 0 {
+        player.move_to = player.move_path.pop_front();
+    }
+
+    let Some(mut path) = player.move_to else {
+        velocity.linvel = Vec2::ZERO;
+        return;
+    };
+
+    // todo! Offset the pathing to account for the feet being on the bottom of the character, not the center
+    path.x += 1;
+    path.y += 1;
+
+    if path == current_grid {
+        player.move_to = None;
+        velocity.linvel = Vec2::ZERO;
+        return;
+    }
+
+    let direction = (Vec2::new(path.x as f32 * INT_TILE_SIZE, path.y as f32 * INT_TILE_SIZE)
+        - player_transform.translation.truncate())
+    .normalize();
+
+    velocity.linvel = direction * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
+}
+
 fn update_character_room_coords(
     mut room_changed_event: EventReader<RoomBoundsHitEvent>,
     mut character_query: Query<&mut GridCoords, (With<Player>, Without<Room>)>,
@@ -335,13 +376,13 @@ fn request_pathfinding(
     if character_input.just_pressed(CharacterInput::WalkSelect) {
         let pos = character_position.translation.truncate();
         let mouse_tile_pos = GridCoords::new(
-            (mouse.0.x / INT_TILE_SIZE) as i32,
-            (mouse.0.y / INT_TILE_SIZE) as i32,
+            (mouse.0.x.round() / INT_TILE_SIZE) as i32,
+            (mouse.0.y.round() / INT_TILE_SIZE) as i32,
         );
 
         let char_position = GridCoords::new(
-            (pos.x / INT_TILE_SIZE) as i32,
-            (pos.y / INT_TILE_SIZE) as i32,
+            (pos.x.round() / INT_TILE_SIZE) as i32,
+            (pos.y.round() / INT_TILE_SIZE) as i32,
         );
 
         pathfinding_request.send(MoveRequest {
@@ -366,7 +407,7 @@ fn check_pathfinding_answer(
             continue;
         }
         if let Ok(path) = &pathfinding_event.path {
-            let mut path = path.clone();
+            let mut path: VecDeque<_> = path.clone().into();
             player.move_path.clear();
             player.move_path.append(&mut path);
         } else {
