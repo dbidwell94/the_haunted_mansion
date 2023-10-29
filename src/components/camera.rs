@@ -73,7 +73,7 @@ fn move_camera_anchor(
 
     let vec_input = input.xy().normalize_or_zero();
 
-    if parent.is_some() && vec_input.x != 0. && vec_input.y != 0. {
+    if parent.is_some() && (vec_input.x != 0. || vec_input.y != 0.) {
         let new_transform = global_transform.compute_transform();
         transform.translation = new_transform.translation;
         commands.entity(entity).remove_parent();
