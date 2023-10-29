@@ -1,5 +1,8 @@
 use crate::{
-    ui::classes::main::{c_button_text, c_button_with_text},
+    ui::{
+        classes::main::{c_button_text, c_button_with_text},
+        OccludeUI,
+    },
     GameState,
 };
 use bevy::{app::AppExit, prelude::*};
@@ -38,17 +41,25 @@ fn destroy_main_ui(mut commands: Commands, ui: Query<Entity, With<GameUiParent>>
 
 fn build_main_ui_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     use classes::main::*;
+
+    let mut inventory_bounding_box = None;
+
     let root_entity = root(c_root, &asset_server, &mut commands, |p| {
         node(c_inventory_container, p, |p| {
             for _ in 0..PLAYER_INVENTORY_COUNT {
                 node(c_inventory_box, p, |_| {});
             }
-        });
+        })
+        .set(&mut inventory_bounding_box);
     });
 
     commands
         .entity(root_entity)
         .insert((GameUiParent, Name::new("Main UI Layout")));
+
+    commands
+        .entity(inventory_bounding_box.unwrap())
+        .insert(OccludeUI);
 }
 
 mod pause_components {

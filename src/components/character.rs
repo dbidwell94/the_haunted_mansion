@@ -1,6 +1,6 @@
 use super::camera::PlayerCamera;
 use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
-use super::{MoveRequest, NavmeshAnswerEvent, INT_TILE_SIZE};
+use super::{MouseToWorldCoords, MoveRequest, NavmeshAnswerEvent, Selectable, INT_TILE_SIZE};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
@@ -25,9 +25,6 @@ pub enum CharacterInput {
     SelectObject,
     MoveCamera,
 }
-
-#[derive(Resource, Default)]
-struct MouseToWorldCoords(Vec2);
 
 #[derive(AssetCollection, Resource)]
 pub struct CharacterWalk {
@@ -83,7 +80,6 @@ pub struct CharacterPlugin;
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_collection_to_loading_state::<_, CharacterWalk>(GameState::Loading)
-            .init_resource::<MouseToWorldCoords>()
             .register_type::<CharacterProps>()
             .add_plugins(InputManagerPlugin::<CharacterInput>::default())
             .add_systems(
@@ -101,7 +97,6 @@ impl Plugin for CharacterPlugin {
                 listen_for_pause
                     .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
             )
-            .add_systems(Update, mouse_input.run_if(in_state(GameState::Main)))
             .add_systems(Update, update_character_room_coords)
             .add_systems(
                 Update,
@@ -120,6 +115,7 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
     let sprite = TextureAtlasSprite {
         custom_size: Some(Vec2::splat(25.)),
         index: CharacterFacing::Right * 9usize,
+        anchor: Anchor::BottomCenter,
         ..default()
     };
 
@@ -127,56 +123,57 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
     camera_bundle.projection.scale = 0.25;
     camera_bundle.camera_2d.clear_color = ClearColorConfig::Custom(Color::BLACK);
 
-    commands.spawn((
-        SpriteSheetBundle {
-            texture_atlas: asset.walking.clone(),
-            sprite,
-            transform: Transform::from_xyz(48., 48., 2.),
-            ..default()
-        },
-        AnimationTimer {
-            timer: Timer::from_seconds(0.125 * 0.5, TimerMode::Repeating),
-            frame_count: 9,
-            walking: false,
-            cols: 9,
-            facing: CharacterFacing::Right,
-        },
-        Name::new("Character"),
-        GravityScale(0.),
-        Player::default(),
-        CharacterProps {
-            knowledge: rand::thread_rng().gen_range(2..11),
-            might: rand::thread_rng().gen_range(2..11),
-            sanity: rand::thread_rng().gen_range(2..11),
-            speed: rand::thread_rng().gen_range(2..11),
-        },
-        GridCoords { x: 0, y: 0 },
-        InputManagerBundle::<CharacterInput> {
-            input_map: InputMap::default()
-                .insert(KeyCode::Escape, CharacterInput::TogglePause)
-                .insert(KeyCode::R, CharacterInput::RotateRoom)
-                .insert(MouseButton::Right, CharacterInput::WalkSelect)
-                .insert(MouseButton::Left, CharacterInput::SelectObject)
-                .insert(
-                    VirtualDPad {
-                        up: KeyCode::W.into(),
-                        down: KeyCode::S.into(),
-                        left: KeyCode::A.into(),
-                        right: KeyCode::D.into(),
-                    },
-                    CharacterInput::MoveCamera,
-                )
-                .build(),
-            ..Default::default()
-        },
-        RigidBody::Dynamic,
-        Velocity::default(),
-        Anchor::TopCenter,
-        Sensor,
-        LockedAxes::ROTATION_LOCKED,
-        ActiveEvents::COLLISION_EVENTS,
-        Collider::compound(vec![(Vec2::new(0., -5.), 0., Collider::cuboid(4., 2.))]),
-    ));
+    commands
+        .spawn((
+            SpriteSheetBundle {
+                texture_atlas: asset.walking.clone(),
+                sprite,
+                transform: Transform::from_xyz(48., 48., 2.),
+                ..default()
+            },
+            AnimationTimer {
+                timer: Timer::from_seconds(0.125 * 0.5, TimerMode::Repeating),
+                frame_count: 9,
+                walking: false,
+                cols: 9,
+                facing: CharacterFacing::Right,
+            },
+            Name::new("Character"),
+            GravityScale(0.),
+            Player::default(),
+            CharacterProps {
+                knowledge: rand::thread_rng().gen_range(2..11),
+                might: rand::thread_rng().gen_range(2..11),
+                sanity: rand::thread_rng().gen_range(2..11),
+                speed: rand::thread_rng().gen_range(2..11),
+            },
+            GridCoords { x: 0, y: 0 },
+            InputManagerBundle::<CharacterInput> {
+                input_map: InputMap::default()
+                    .insert(KeyCode::Escape, CharacterInput::TogglePause)
+                    .insert(KeyCode::R, CharacterInput::RotateRoom)
+                    .insert(MouseButton::Right, CharacterInput::WalkSelect)
+                    .insert(MouseButton::Left, CharacterInput::SelectObject)
+                    .insert(
+                        VirtualDPad {
+                            up: KeyCode::W.into(),
+                            down: KeyCode::S.into(),
+                            left: KeyCode::A.into(),
+                            right: KeyCode::D.into(),
+                        },
+                        CharacterInput::MoveCamera,
+                    )
+                    .build(),
+                ..Default::default()
+            },
+            RigidBody::Dynamic,
+            Velocity::default(),
+            Sensor,
+            LockedAxes::ROTATION_LOCKED,
+            ActiveEvents::COLLISION_EVENTS,
+            Collider::compound(vec![(Vec2::new(0., 2.), 0., Collider::cuboid(4., 2.))]),
+        ))
+        .insert((Selectable,));
 }
 
 fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {
@@ -263,24 +260,6 @@ fn listen_for_pause(
     }
 }
 
-fn mouse_input(
-    mut mouse_coords: ResMut<MouseToWorldCoords>,
-    q_window: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform), With<PlayerCamera>>,
-) {
-    let (camera, camera_transform) = q_camera.single();
-
-    let window = q_window.single();
-
-    if let Some(world_pos) = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
-        .map(|ray| ray.origin.truncate())
-    {
-        mouse_coords.0 = world_pos;
-    }
-}
-
 fn move_player(
     mut player_query: Query<(&mut Velocity, &mut Player, &Transform), With<Player>>,
     time: Res<Time>,
@@ -298,14 +277,10 @@ fn move_player(
         player.move_to = player.move_path.pop_front();
     }
 
-    let Some(mut path) = player.move_to else {
+    let Some(path) = player.move_to else {
         velocity.linvel = Vec2::ZERO;
         return;
     };
-
-    // todo! Offset the pathing to account for the feet being on the bottom of the character, not the center
-    path.x += 1;
-    path.y += 1;
 
     if path == current_grid {
         player.move_to = None;
@@ -355,11 +330,15 @@ fn request_pathfinding(
         return;
     };
 
+    let Some(mouse_pos) = mouse.0 else {
+        return;
+    };
+
     if character_input.just_pressed(CharacterInput::WalkSelect) {
         let pos = character_position.translation.truncate();
         let mouse_tile_pos = GridCoords::new(
-            (mouse.0.x.round() / INT_TILE_SIZE) as i32,
-            (mouse.0.y.round() / INT_TILE_SIZE) as i32,
+            (mouse_pos.x.round() / INT_TILE_SIZE) as i32,
+            (mouse_pos.y.round() / INT_TILE_SIZE) as i32,
         );
 
         let char_position = GridCoords::new(

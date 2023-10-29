@@ -5,8 +5,14 @@ mod camera;
 mod card;
 mod character;
 mod navmesh;
-mod room;
 mod network;
+mod room;
+
+#[derive(Component, Default)]
+pub struct Selectable;
+
+#[derive(Resource, Default)]
+pub struct MouseToWorldCoords(Option<Vec2>);
 
 pub use character::spawn_character_player;
 pub use navmesh::{
@@ -25,7 +31,8 @@ impl Plugin for ComponentPlugin {
             character::CharacterPlugin,
             navmesh::NavmeshPlugin,
             camera::CameraPlugin,
-            network::NetworkPlugin
-        ));
+            network::NetworkPlugin,
+        ))
+        .init_resource::<MouseToWorldCoords>();
     }
 }
