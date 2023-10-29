@@ -29,7 +29,7 @@ fn main() {
     App::new()
         .add_state::<GameState>()
         .add_loading_state(
-            LoadingState::new(GameState::Loading).continue_to_state(GameState::InitialSpawn),
+            LoadingState::new(GameState::Loading).continue_to_state(GameState::MainMenu),
         )
         .add_plugins((
             DefaultPlugins
@@ -38,7 +38,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "The Haunted Mansion".into(),
-                        mode: WindowMode::BorderlessFullscreen,
+                        mode: WindowMode::Windowed,
                         ..default()
                     }),
                     ..default()

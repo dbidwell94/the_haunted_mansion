@@ -1,6 +1,8 @@
 use super::camera::PlayerCamera;
 use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
-use super::{MouseToWorldCoords, MoveRequest, NavmeshAnswerEvent, Selectable, INT_TILE_SIZE};
+use super::{
+    GgrsConfig, MouseToWorldCoords, MoveRequest, NavmeshAnswerEvent, Selectable, INT_TILE_SIZE,
+};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
@@ -57,6 +59,9 @@ pub struct Player {
     move_path: VecDeque<GridCoords>,
     move_to: Option<GridCoords>,
 }
+
+#[derive(Component, Default)]
+pub struct NetworkPlayer {}
 
 impl Mul<usize> for CharacterFacing {
     type Output = usize;
@@ -173,7 +178,45 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
             ActiveEvents::COLLISION_EVENTS,
             Collider::compound(vec![(Vec2::new(0., 2.), 0., Collider::cuboid(4., 2.))]),
         ))
-        .insert((Selectable,));
+        .insert(Selectable);
+}
+
+fn spawn_network_player(mut commands: Commands, asset: Res<CharacterWalk>) {
+    let sprite = TextureAtlasSprite {
+        custom_size: Some(Vec2::splat(25.)),
+        index: CharacterFacing::Right * 9usize,
+        anchor: Anchor::BottomCenter,
+        ..default()
+    };
+
+    commands
+        .spawn((
+            SpriteSheetBundle {
+                texture_atlas: asset.walking.clone(),
+                sprite,
+                transform: Transform::from_xyz(48., 48., 2.),
+                ..default()
+            },
+            AnimationTimer {
+                timer: Timer::from_seconds(0.125 * 0.5, TimerMode::Repeating),
+                frame_count: 9,
+                walking: false,
+                cols: 9,
+                facing: CharacterFacing::Right,
+            },
+            CharacterProps::default(),
+            Name::new("Character"),
+            GravityScale(0.),
+            GridCoords { x: 0, y: 0 },
+            RigidBody::Dynamic,
+            Velocity::default(),
+            Sensor,
+            LockedAxes::ROTATION_LOCKED,
+            ActiveEvents::COLLISION_EVENTS,
+            Collider::compound(vec![(Vec2::new(0., 2.), 0., Collider::cuboid(4., 2.))]),
+            NetworkPlayer {},
+        ))
+        .insert(Selectable);
 }
 
 fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {

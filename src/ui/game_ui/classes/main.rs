@@ -46,6 +46,7 @@ pub fn c_button_with_text(_: &AssetServer, b: &mut ButtonBundle) {
     b.style = Style {
         border: UiRect::all(Val::Px(2.)),
         padding: UiRect::axes(Val::Px(8.), Val::Px(4.)),
+        margin: UiRect::axes(Val::Px(0.), Val::Px(4.)),
         ..default()
     };
 }

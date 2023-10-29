@@ -1,7 +1,6 @@
-use super::{character::CharacterInput, spawn_character_player, MouseToWorldCoords, Selectable};
+use super::{character::CharacterInput, MouseToWorldCoords, Selectable};
 use crate::ui::OccludeUI;
 use crate::GameState;
-use bevy::math::Vec3Swizzles;
 use bevy::render::primitives::Aabb;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
@@ -14,20 +13,17 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            OnEnter(GameState::InitialSpawn),
-            spawn_camera.after(spawn_character_player),
-        )
-        .add_systems(Update, lerp_to_object.run_if(in_state(GameState::Main)))
-        .add_systems(Update, move_camera_anchor.run_if(in_state(GameState::Main)))
-        .add_systems(
-            Update,
-            focus_on_selectable.run_if(in_state(GameState::Main)),
-        )
-        .add_systems(
-            Update,
-            update_mouse_coords.run_if(in_state(GameState::Main)),
-        );
+        app.add_systems(OnEnter(GameState::MainMenu), spawn_camera)
+            .add_systems(Update, lerp_to_object.run_if(in_state(GameState::Main)))
+            .add_systems(Update, move_camera_anchor.run_if(in_state(GameState::Main)))
+            .add_systems(
+                Update,
+                focus_on_selectable.run_if(in_state(GameState::Main)),
+            )
+            .add_systems(
+                Update,
+                update_mouse_coords.run_if(in_state(GameState::Main)),
+            );
     }
 }
 
