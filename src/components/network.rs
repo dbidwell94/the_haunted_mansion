@@ -91,7 +91,7 @@ fn listen_for_start_multiplayer(
 fn init_networked_players(
     mut commands: Commands,
     asset: Res<CharacterWalk>,
-    local_player: Query<Entity, With<Player>>,
+    local_player: Query<(Entity, &CharacterProps), With<Player>>,
     socket: Option<ResMut<MatchboxSocket<SingleChannel>>>,
     lobby_config: Res<LobbyConfig>,
     mut network_state: ResMut<NextState<NetworkState>>,
@@ -110,7 +110,7 @@ fn init_networked_players(
         return;
     };
 
-    let Ok(local_player_entity) = local_player.get_single() else {
+    let Ok((local_player_entity, character_props)) = local_player.get_single() else {
         return;
     };
 
@@ -120,7 +120,13 @@ fn init_networked_players(
 
     info!("Player count reached. Starting match");
 
-    for peer in socket.connected_peers() {
+    let peers = socket.connected_peers().collect::<Vec<_>>();
+
+    let character_props = bincode::serialize(&NetworkEvent::PropsFor(character_props.clone()))
+        .ok()
+        .map(|d| d.into_boxed_slice());
+
+    for peer in peers {
         if peer == my_local_id {
             let network_player = NetworkPlayer { player_id: peer };
             commands
@@ -129,26 +135,13 @@ fn init_networked_players(
             continue;
         }
         spawn_network_player(&mut commands, &asset, peer);
+
+        if let Some(props) = &character_props {
+            socket.send(props.clone(), peer);
+        }
     }
 
     network_state.set(NetworkState::Playing);
-}
-
-fn broadcast_local_state(
-    socket: Option<ResMut<MatchboxSocket<SingleChannel>>>,
-    self_query: Query<&Transform, With<Player>>,
-) {
-    let Some(mut socket) = socket else {
-        return;
-    };
-
-    let Some(self_id) = socket.id() else {
-        return;
-    };
-
-    let Ok(local_transform) = self_query.get_single() else {
-        return;
-    };
 }
 
 fn recieve_remote_state(
@@ -176,8 +169,7 @@ fn recieve_remote_state(
 
         match network_event {
             NetworkEvent::PlayerPathing(vecs) => {
-                info!("Received remote pathfinding: {vecs:?}");
-                transform.paths = vecs
+                transform.move_path = vecs
                     .into_iter()
                     .map(|(x, y)| GridCoords::new(x, y))
                     .collect()

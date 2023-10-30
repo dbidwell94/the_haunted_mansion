@@ -65,8 +65,8 @@ pub struct NetworkPlayer {
 
 #[derive(Component, Default)]
 pub struct NetworkTransform {
-    pub paths: VecDeque<GridCoords>,
-    pub moving_to: Option<GridCoords>,
+    pub move_path: VecDeque<GridCoords>,
+    pub move_to: Option<GridCoords>,
 }
 
 impl Mul<usize> for CharacterFacing {
@@ -119,7 +119,7 @@ impl Plugin for CharacterPlugin {
             )
             .add_systems(
                 Update,
-                move_player.run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
+                (move_player, move_network_player).run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
             )
             .add_systems(OnExit(GameState::Main), on_main_exit);
     }
@@ -245,19 +245,25 @@ fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {
 
 fn update_character_animation(
     mut sprites: Query<(&mut TextureAtlasSprite, &mut AnimationTimer, Entity)>,
-    movement: Query<(&Velocity, &Player), With<Player>>,
+    movement: Query<(&Velocity, Option<&Player>, Option<&NetworkTransform>), Or<(With<Player>, With<NetworkTransform>)>>,
     time: Res<Time>,
 ) {
     for (mut sprite, mut animation, player_entity) in &mut sprites {
-        let Ok((velocity, player)) = movement.get(player_entity) else {
+        let Ok((velocity, player, net_transform)) = movement.get(player_entity) else {
             continue;
+        };
+
+        let move_path = if player.is_some() {
+            &player.unwrap().move_path
+        } else {
+            &net_transform.unwrap().move_path
         };
 
         let mut temp_facing = Option::<CharacterFacing>::None;
 
         let velocity = velocity.linvel.normalize();
 
-        animation.walking = player.move_path.len() > 0;
+        animation.walking = move_path.len() > 0;
 
         if velocity.x.abs() > velocity.y.abs() {
             if velocity.x > 0. {
@@ -352,6 +358,42 @@ fn move_player(
     .normalize();
 
     velocity.linvel = direction * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
+}
+
+fn move_network_player(
+    mut player_query: Query<
+        (&mut Velocity, &mut NetworkTransform, &Transform),
+        With<NetworkTransform>,
+    >,
+    time: Res<Time>,
+) {
+    for (mut velocity, mut player, player_transform) in &mut player_query {
+        let current_grid = GridCoords::new(
+            (player_transform.translation.x / INT_TILE_SIZE).round() as i32,
+            (player_transform.translation.y / INT_TILE_SIZE).round() as i32,
+        );
+
+        if player.move_to.is_none() && player.move_path.len() > 0 {
+            player.move_to = player.move_path.pop_front();
+        }
+
+        let Some(path) = player.move_to else {
+            velocity.linvel = Vec2::ZERO;
+            return;
+        };
+
+        if path == current_grid {
+            player.move_to = None;
+            velocity.linvel = Vec2::ZERO;
+            return;
+        }
+
+        let direction = (Vec2::new(path.x as f32 * INT_TILE_SIZE, path.y as f32 * INT_TILE_SIZE)
+            - player_transform.translation.truncate())
+        .normalize();
+
+        velocity.linvel = direction * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
+    }
 }
 
 fn update_character_room_coords(
