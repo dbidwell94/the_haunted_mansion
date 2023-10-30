@@ -25,6 +25,10 @@ enum NetworkState {
 #[derive(Serialize, Deserialize, Debug)]
 enum NetworkEvent {
     PlayerPathing(VecDeque<(i32, i32)>),
+    Hello {
+        initial_position: Vec3,
+        props: CharacterProps,
+    },
     PropsFor(CharacterProps),
 }
 
@@ -91,7 +95,7 @@ fn listen_for_start_multiplayer(
 fn init_networked_players(
     mut commands: Commands,
     asset: Res<CharacterWalk>,
-    local_player: Query<(Entity, &CharacterProps), With<Player>>,
+    local_player: Query<(Entity, &CharacterProps, &Transform), With<Player>>,
     socket: Option<ResMut<MatchboxSocket<SingleChannel>>>,
     lobby_config: Res<LobbyConfig>,
     mut network_state: ResMut<NextState<NetworkState>>,
@@ -110,7 +114,7 @@ fn init_networked_players(
         return;
     };
 
-    let Ok((local_player_entity, character_props)) = local_player.get_single() else {
+    let Ok((local_player_entity, character_props, transform)) = local_player.get_single() else {
         return;
     };
 
@@ -122,9 +126,12 @@ fn init_networked_players(
 
     let peers = socket.connected_peers().collect::<Vec<_>>();
 
-    let character_props = bincode::serialize(&NetworkEvent::PropsFor(character_props.clone()))
-        .ok()
-        .map(|d| d.into_boxed_slice());
+    let character_props = bincode::serialize(&NetworkEvent::Hello {
+        initial_position: transform.translation,
+        props: character_props.clone(),
+    })
+    .ok()
+    .map(|d| d.into_boxed_slice());
 
     for peer in peers {
         if peer == my_local_id {
@@ -146,7 +153,12 @@ fn init_networked_players(
 
 fn recieve_remote_state(
     mut players: Query<
-        (&mut NetworkTransform, &NetworkPlayer, &mut CharacterProps),
+        (
+            &mut NetworkTransform,
+            &NetworkPlayer,
+            &mut CharacterProps,
+            &mut Transform,
+        ),
         Without<Player>,
     >,
     socket: Option<ResMut<MatchboxSocket<SingleChannel>>>,
@@ -156,9 +168,9 @@ fn recieve_remote_state(
     };
 
     for (peer, data) in socket.receive() {
-        let Some((mut transform, _, mut props)) = players
+        let Some((mut net_trans, _, mut props, mut transform)) = players
             .iter_mut()
-            .find(|(_, ref player, _)| player.player_id == peer)
+            .find(|(_, ref player, _, _)| player.player_id == peer)
         else {
             continue;
         };
@@ -169,10 +181,17 @@ fn recieve_remote_state(
 
         match network_event {
             NetworkEvent::PlayerPathing(vecs) => {
-                transform.move_path = vecs
+                net_trans.move_path = vecs
                     .into_iter()
                     .map(|(x, y)| GridCoords::new(x, y))
                     .collect()
+            }
+            NetworkEvent::Hello {
+                initial_position,
+                props: network_props,
+            } => {
+                transform.translation = initial_position;
+                *props = network_props;
             }
             NetworkEvent::PropsFor(recv_props) => {
                 *props = recv_props;
