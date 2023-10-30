@@ -56,8 +56,7 @@ fn main() {
             Update,
             start_game
                 .run_if(in_state(GameState::InitialSpawn))
-                .after(components::setup_first_rooms)
-                .after(components::spawn_character_player),
+                .after(components::setup_first_rooms),
         )
         .add_systems(OnEnter(GameState::Main), grab_cursor)
         .add_systems(OnExit(GameState::Main), release_cursor)

@@ -1,9 +1,7 @@
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 
 mod game_ui;
 
-use crate::components::MouseToWorldCoords;
 pub use game_ui::classes;
 
 pub struct UiPlugin;

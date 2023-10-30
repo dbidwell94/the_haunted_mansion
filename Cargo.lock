@@ -300,7 +300,7 @@ dependencies = [
  "objc",
  "objc-foundation",
  "objc_id",
- "parking_lot 0.12.1",
+ "parking_lot",
  "thiserror",
  "winapi",
  "x11rb",
@@ -746,7 +746,7 @@ dependencies = [
  "fastrand 1.9.0",
  "js-sys",
  "notify",
- "parking_lot 0.12.1",
+ "parking_lot",
  "serde",
  "thiserror",
  "wasm-bindgen",
@@ -793,7 +793,7 @@ dependencies = [
  "bevy_transform",
  "bevy_utils",
  "oboe",
- "parking_lot 0.12.1",
+ "parking_lot",
  "rodio",
 ]
 
@@ -964,20 +964,6 @@ checksum = "d0ac0f55ad6bca1be7b0f35bbd5fc95ed3d31e4e9db158fee8e5327f59006001"
 dependencies = [
  "bevy_macro_utils",
  "encase_derive_impl",
-]
-
-[[package]]
-name = "bevy_ggrs"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10aba92b574e9af76a1b4514fa010731d0b2bf29b8b0b135a2a5c9bc3c468174"
-dependencies = [
- "bevy",
- "bytemuck",
- "ggrs",
- "instant",
- "log",
- "parking_lot 0.12.1",
 ]
 
 [[package]]
@@ -1230,7 +1216,7 @@ dependencies = [
  "erased-serde",
  "glam",
  "once_cell",
- "parking_lot 0.12.1",
+ "parking_lot",
  "serde",
  "smallvec",
  "smol_str",
@@ -1288,7 +1274,7 @@ dependencies = [
  "ktx2",
  "naga",
  "naga_oil",
- "parking_lot 0.12.1",
+ "parking_lot",
  "regex",
  "ruzstd",
  "serde",
@@ -1568,16 +1554,6 @@ name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
-
-[[package]]
-name = "bitfield-rle"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f8acc105b7bd3ed61e4bb7ad3e3b3f2a8da72205b2e0408cf71a499e8f57dd0"
-dependencies = [
- "failure",
- "varinteger",
-]
 
 [[package]]
 name = "bitflags"
@@ -1984,7 +1960,7 @@ dependencies = [
  "ndk-context",
  "oboe",
  "once_cell",
- "parking_lot 0.12.1",
+ "parking_lot",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -2510,7 +2486,7 @@ dependencies = [
  "ecolor",
  "emath",
  "nohash-hasher",
- "parking_lot 0.12.1",
+ "parking_lot",
 ]
 
 [[package]]
@@ -2562,28 +2538,6 @@ name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
-
-[[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "synstructure",
-]
 
 [[package]]
 name = "fastrand"
@@ -2863,23 +2817,6 @@ dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "ggrs"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1419c3c38e579884b075b99a8ade2ca507e87a2bde81940c6fe4aea895696831"
-dependencies = [
- "bincode",
- "bitfield-rle",
- "bytemuck",
- "getrandom 0.2.10",
- "instant",
- "js-sys",
- "parking_lot 0.11.2",
- "rand",
- "serde",
 ]
 
 [[package]]
@@ -3648,7 +3585,6 @@ dependencies = [
  "async-compat",
  "async-trait",
  "async-tungstenite",
- "bincode",
  "bytes",
  "cfg-if 1.0.0",
  "crossbeam-channel",
@@ -3657,7 +3593,6 @@ dependencies = [
  "futures-channel",
  "futures-timer",
  "futures-util",
- "ggrs",
  "js-sys",
  "log",
  "matchbox_protocol",
@@ -4275,37 +4210,12 @@ checksum = "bb813b8af86854136c6922af0598d719255ecb2179515e6e7730d468f05c9cae"
 
 [[package]]
 name = "parking_lot"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d17b78036a60663b797adeaee46f5c9dfebb86948d1255007a1d6be0271ff99"
-dependencies = [
- "instant",
- "lock_api",
- "parking_lot_core 0.8.6",
-]
-
-[[package]]
-name = "parking_lot"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3742b2c103b9f06bc9fff0a37ff4912935851bee6d36f3c02bcc755bcfec228f"
 dependencies = [
  "lock_api",
- "parking_lot_core 0.9.9",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60a2cfe6f0ad2bfc16aefa463b497d5c7a5ecd44a23efa72aa342d90177356dc"
-dependencies = [
- "cfg-if 1.0.0",
- "instant",
- "libc",
- "redox_syscall 0.2.16",
- "smallvec",
- "winapi",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -4676,15 +4586,6 @@ name = "rectangle-pack"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0d463f2884048e7153449a55166f91028d5b0ea53c79377099ce4e8cf0cf9bb"
-
-[[package]]
-name = "redox_syscall"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
-dependencies = [
- "bitflags 1.3.2",
-]
 
 [[package]]
 name = "redox_syscall"
@@ -5427,16 +5328,16 @@ dependencies = [
  "bevy_asset_loader",
  "bevy_ecs_ldtk",
  "bevy_embedded_assets",
- "bevy_ggrs",
  "bevy_matchbox",
  "bevy_rapier2d",
- "bytemuck",
+ "bincode",
  "derivative",
  "futures-lite 2.0.0",
  "lazy_static",
  "leafwing-input-manager",
  "pathfinding",
  "rand",
+ "serde",
 ]
 
 [[package]]
@@ -5580,7 +5481,7 @@ dependencies = [
  "libc",
  "mio",
  "num_cpus",
- "parking_lot 0.12.1",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.5.5",
@@ -5841,12 +5742,6 @@ name = "value-bag"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a72e1902dde2bd6441347de2b70b7f5d59bf157c6c62f0c44572607a1d55bbe"
-
-[[package]]
-name = "varinteger"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ea29db9f94ff08bb619656b8120878f280526f71dc88b5262c958a510181812"
 
 [[package]]
 name = "vec_map"
@@ -6320,7 +6215,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot 0.12.1",
+ "parking_lot",
  "profiling",
  "raw-window-handle",
  "smallvec",
@@ -6345,7 +6240,7 @@ dependencies = [
  "codespan-reporting",
  "log",
  "naga",
- "parking_lot 0.12.1",
+ "parking_lot",
  "profiling",
  "raw-window-handle",
  "rustc-hash",
@@ -6384,7 +6279,7 @@ dependencies = [
  "metal",
  "naga",
  "objc",
- "parking_lot 0.12.1",
+ "parking_lot",
  "profiling",
  "range-alloc",
  "raw-window-handle",

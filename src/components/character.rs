@@ -1,19 +1,17 @@
-use super::camera::PlayerCamera;
 use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
-use super::{
-    GgrsConfig, MouseToWorldCoords, MoveRequest, NavmeshAnswerEvent, Selectable, INT_TILE_SIZE,
-};
+use super::{MouseToWorldCoords, MoveRequest, NavmeshAnswerEvent, Selectable, INT_TILE_SIZE};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-use bevy::window::PrimaryWindow;
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::GridCoords;
+use bevy_matchbox::prelude::PeerId;
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::ops::Mul;
 
@@ -35,7 +33,7 @@ pub struct CharacterWalk {
     walking: Handle<TextureAtlas>,
 }
 
-#[derive(Component, Default, Clone, Debug, Reflect)]
+#[derive(Component, Default, Clone, Debug, Reflect, Serialize, Deserialize)]
 pub struct CharacterProps {
     pub speed: u8,
     pub might: u8,
@@ -60,8 +58,16 @@ pub struct Player {
     move_to: Option<GridCoords>,
 }
 
+#[derive(Component)]
+pub struct NetworkPlayer {
+    pub player_id: PeerId,
+}
+
 #[derive(Component, Default)]
-pub struct NetworkPlayer {}
+pub struct NetworkTransform {
+    pub paths: VecDeque<GridCoords>,
+    pub moving_to: Option<GridCoords>,
+}
 
 impl Mul<usize> for CharacterFacing {
     type Output = usize;
@@ -95,7 +101,7 @@ impl Plugin for CharacterPlugin {
                 Update,
                 update_character_animation
                     .after(move_player)
-                    .run_if(in_state(GameState::Main)),
+                    .run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
             )
             .add_systems(
                 Update,
@@ -111,7 +117,10 @@ impl Plugin for CharacterPlugin {
                 Update,
                 check_pathfinding_answer.run_if(in_state(GameState::Main)),
             )
-            .add_systems(Update, move_player.run_if(in_state(GameState::Main)))
+            .add_systems(
+                Update,
+                move_player.run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
+            )
             .add_systems(OnExit(GameState::Main), on_main_exit);
     }
 }
@@ -178,10 +187,14 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
             ActiveEvents::COLLISION_EVENTS,
             Collider::compound(vec![(Vec2::new(0., 2.), 0., Collider::cuboid(4., 2.))]),
         ))
-        .insert(Selectable);
+        .insert((Selectable,));
 }
 
-fn spawn_network_player(mut commands: Commands, asset: Res<CharacterWalk>) {
+pub fn spawn_network_player(
+    commands: &mut Commands,
+    asset: &Res<CharacterWalk>,
+    player_id: PeerId,
+) {
     let sprite = TextureAtlasSprite {
         custom_size: Some(Vec2::splat(25.)),
         index: CharacterFacing::Right * 9usize,
@@ -214,7 +227,10 @@ fn spawn_network_player(mut commands: Commands, asset: Res<CharacterWalk>) {
             LockedAxes::ROTATION_LOCKED,
             ActiveEvents::COLLISION_EVENTS,
             Collider::compound(vec![(Vec2::new(0., 2.), 0., Collider::cuboid(4., 2.))]),
-            NetworkPlayer {},
+            NetworkPlayer { player_id },
+            NetworkTransform {
+                ..Default::default()
+            },
         ))
         .insert(Selectable);
 }

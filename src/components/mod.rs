@@ -19,7 +19,7 @@ pub use navmesh::{
     MoveRequest, NavmeshAnswerEvent, NavmeshBundle, NavmeshTileBundle, RebuildNavmesh,
     WalkableState,
 };
-pub use network::{GgrsConfig, LobbyConfig, NetworkCharacterInput, StartMultiplayer};
+pub use network::{LobbyConfig, StartMultiplayer};
 pub use room::setup_first_rooms;
 pub use room::{Room, INT_TILE_SIZE};
 
