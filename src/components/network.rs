@@ -12,7 +12,7 @@ use bevy_ecs_ldtk::GridCoords;
 use bevy_matchbox::prelude::*;
 use serde::{Deserialize, Serialize};
 
-const ROOM_URL: &'static str = "ws://192.168.50.130:3536/haunted_mansion";
+const ROOM_URL: &'static str = "ws://devinserver.biddydev.com:3536/haunted_mansion";
 
 #[derive(States, Default, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkState {
