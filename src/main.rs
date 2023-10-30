@@ -2,10 +2,7 @@
 
 use bevy::{
     prelude::*,
-    render::{
-        settings::{Backends, WgpuSettings},
-        RenderPlugin,
-    },
+    render::{settings::WgpuSettings, RenderPlugin},
     window::{CursorGrabMode, PrimaryWindow, WindowMode},
 };
 use bevy_asset_loader::prelude::*;
@@ -50,7 +47,7 @@ fn main() {
                 .set(RenderPlugin {
                     wgpu_settings: WgpuSettings {
                         #[cfg(target_os = "windows")]
-                        backends: Some(Backends::DX12),
+                        backends: Some(bevy::render::settings::Backends::DX12),
                         ..default()
                     },
                 })
