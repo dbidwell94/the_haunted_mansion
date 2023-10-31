@@ -30,7 +30,10 @@ pub enum CharacterInput {
 pub struct CharacterWalk {
     #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
     #[asset(path = "sprites/professor_walk.png")]
-    walking: Handle<TextureAtlas>,
+    professor: Handle<TextureAtlas>,
+    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
+    #[asset(path = "sprites/fbi_walk.png")]
+    fbi: Handle<TextureAtlas>,
 }
 
 #[derive(Component, Default, Clone, Debug, Reflect, Serialize, Deserialize)]
@@ -119,7 +122,8 @@ impl Plugin for CharacterPlugin {
             )
             .add_systems(
                 Update,
-                (move_player, move_network_player).run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
+                (move_player, move_network_player)
+                    .run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
             )
             .add_systems(OnExit(GameState::Main), on_main_exit);
     }
@@ -140,7 +144,7 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
     commands
         .spawn((
             SpriteSheetBundle {
-                texture_atlas: asset.walking.clone(),
+                texture_atlas: asset.professor.clone(),
                 sprite,
                 transform: Transform::from_xyz(48., 48., 2.),
                 ..default()
@@ -205,7 +209,7 @@ pub fn spawn_network_player(
     commands
         .spawn((
             SpriteSheetBundle {
-                texture_atlas: asset.walking.clone(),
+                texture_atlas: asset.fbi.clone(),
                 sprite,
                 transform: Transform::from_xyz(48., 48., 2.),
                 ..default()
@@ -245,7 +249,10 @@ fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {
 
 fn update_character_animation(
     mut sprites: Query<(&mut TextureAtlasSprite, &mut AnimationTimer, Entity)>,
-    movement: Query<(&Velocity, Option<&Player>, Option<&NetworkTransform>), Or<(With<Player>, With<NetworkTransform>)>>,
+    movement: Query<
+        (&Velocity, Option<&Player>, Option<&NetworkTransform>),
+        Or<(With<Player>, With<NetworkTransform>)>,
+    >,
     time: Res<Time>,
 ) {
     for (mut sprite, mut animation, player_entity) in &mut sprites {
