@@ -1,4 +1,4 @@
-use super::room::{setup_first_rooms, Room, RoomBoundsHitEvent, RoomEnterExit};
+use super::room::{setup_first_rooms, Room, LDTK_ROOMS};
 use super::{MouseToWorldCoords, MoveRequest, NavmeshAnswerEvent, Selectable, INT_TILE_SIZE};
 use crate::GameState;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
@@ -17,6 +17,12 @@ use std::ops::Mul;
 
 const CHARACTER_MOVE_SPEED: f32 = 45.0;
 
+#[derive(Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum CharacterType {
+    Professor,
+    Fbi,
+}
+
 #[derive(Actionlike, Reflect, Clone)]
 pub enum CharacterInput {
     TogglePause,
@@ -29,11 +35,19 @@ pub enum CharacterInput {
 #[derive(AssetCollection, Resource)]
 pub struct CharacterWalk {
     #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
-    #[asset(path = "sprites/professor_walk.png")]
+    #[asset(path = "sprites/sheets/professor_walk.png")]
     professor: Handle<TextureAtlas>,
     #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
-    #[asset(path = "sprites/fbi_walk.png")]
+    #[asset(path = "sprites/sheets/fbi_walk.png")]
     fbi: Handle<TextureAtlas>,
+}
+
+#[derive(AssetCollection, Resource)]
+pub struct Headshots {
+    #[asset(path = "sprites/professor_headshot.png")]
+    pub professor_headshot: Handle<Image>,
+    #[asset(path = "sprites/fbi_headshot.png")]
+    pub fbi_headshot: Handle<Image>,
 }
 
 #[derive(Component, Default, Clone, Debug, Reflect, Serialize, Deserialize)]
@@ -55,10 +69,25 @@ enum CharacterFacing {
     Right = 3,
 }
 
-#[derive(Component, Default)]
+#[derive(Component)]
 pub struct Player {
     move_path: VecDeque<GridCoords>,
     move_to: Option<GridCoords>,
+    pub in_room: Room,
+}
+
+impl Default for Player {
+    fn default() -> Self {
+        Self {
+            move_path: Default::default(),
+            move_to: Default::default(),
+            in_room: LDTK_ROOMS
+                .iter()
+                .find(|r| r.name.to_lowercase().contains("entry"))
+                .unwrap()
+                .clone(),
+        }
+    }
 }
 
 #[derive(Component)]
@@ -94,6 +123,7 @@ pub struct CharacterPlugin;
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_collection_to_loading_state::<_, CharacterWalk>(GameState::Loading)
+            .add_collection_to_loading_state::<_, Headshots>(GameState::Loading)
             .register_type::<CharacterProps>()
             .add_plugins(InputManagerPlugin::<CharacterInput>::default())
             .add_systems(
@@ -111,7 +141,6 @@ impl Plugin for CharacterPlugin {
                 listen_for_pause
                     .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
             )
-            .add_systems(Update, update_character_room_coords)
             .add_systems(
                 Update,
                 request_pathfinding.run_if(in_state(GameState::Main)),
@@ -191,7 +220,12 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
             ActiveEvents::COLLISION_EVENTS,
             Collider::compound(vec![(Vec2::new(0., 2.), 0., Collider::cuboid(4., 2.))]),
         ))
-        .insert((Selectable,));
+        .insert((
+            Selectable,
+            AabbGizmo {
+                color: Some(Color::RED),
+            },
+        ));
 }
 
 pub fn spawn_network_player(
@@ -400,32 +434,6 @@ fn move_network_player(
         .normalize();
 
         velocity.linvel = direction * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
-    }
-}
-
-fn update_character_room_coords(
-    mut room_changed_event: EventReader<RoomBoundsHitEvent>,
-    mut character_query: Query<&mut GridCoords, (With<Player>, Without<Room>)>,
-    room_query: Query<&GridCoords, (With<Room>, Without<Player>)>,
-) {
-    for evt in &mut room_changed_event {
-        let Ok(mut player_grid_coords) = character_query.get_mut(evt.character_entity) else {
-            continue;
-        };
-        let Ok(room_grid_coords) = room_query.get(evt.room_entity) else {
-            continue;
-        };
-
-        let ent = evt.character_entity;
-        let room = &evt.room.name;
-
-        if evt.movement_type == RoomEnterExit::Enter {
-            player_grid_coords.x = room_grid_coords.x;
-            player_grid_coords.y = room_grid_coords.y;
-            info!("Entity {:?} Entered room {}", ent, room);
-        } else {
-            info!("Entity {:?} Exited room {}", ent, room);
-        }
     }
 }
 

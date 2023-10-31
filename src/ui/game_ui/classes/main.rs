@@ -12,6 +12,14 @@ pub fn c_root(b: &mut NodeBundle) {
     };
 }
 
+pub fn c_character_list(b: &mut NodeBundle) {
+    c_inventory_container(b);
+
+    b.style.bottom = Val::Auto;
+    b.style.top = Val::Percent(0.);
+    b.background_color = BackgroundColor(Color::NONE);
+}
+
 pub fn c_inventory_box(b: &mut NodeBundle) {
     b.border_color = BorderColor(Color::rgb(0.75, 0.75, 0.75));
     b.style = Style {

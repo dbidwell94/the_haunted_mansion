@@ -1,4 +1,4 @@
-use crate::components::StartMultiplayer;
+use crate::components::{LobbyConfig, StartMultiplayer};
 use crate::{ui::OccludeUI, GameState};
 use bevy::{app::AppExit, prelude::*};
 use bevy_ui_dsl::*;
@@ -51,12 +51,22 @@ fn destroy_main_ui(mut commands: Commands, ui: Query<Entity, With<GameUiParent>>
     commands.entity(ui).despawn_recursive();
 }
 
-fn build_main_ui_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn build_main_ui_layout(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    lobby: Res<LobbyConfig>,
+) {
     use classes::main::*;
 
     let mut inventory_bounding_box = None;
 
     let root_entity = root(c_root, &asset_server, &mut commands, |p| {
+        node(c_character_list, p, |p| {
+            for _ in 0..lobby.requested_players + 1 {
+                node(c_inventory_box, p, |p| {});
+            }
+        });
+
         node(c_inventory_container, p, |p| {
             for _ in 0..PLAYER_INVENTORY_COUNT {
                 node(c_inventory_box, p, |_| {});

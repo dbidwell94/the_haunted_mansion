@@ -15,6 +15,8 @@ mod components;
 mod events;
 mod prelude;
 mod ui;
+mod utils;
+
 
 #[derive(Default, Eq, PartialEq, Debug, Hash, Clone, States)]
 pub enum GameState {

@@ -1,8 +1,9 @@
 use super::{card::CardType, character::Player, navmesh::*};
-use crate::prelude::*;
 use crate::GameState;
 use bevy::math::Vec3A;
 use bevy::render::primitives::Aabb;
+use bevy::sprite::collide_aabb::collide;
+use bevy::sprite::collide_aabb::Collision;
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
@@ -16,7 +17,6 @@ use ldtk::*;
 
 const ROOM_SIZE: f32 = 96.0;
 pub const INT_TILE_SIZE: f32 = 8.;
-const INT_GRID_TILE_COUNT_PER_AXIS: i32 = 12;
 
 fn room_location_to_position(location: (i32, i32)) -> Vec2 {
     Vec2::new(location.0 as f32 * ROOM_SIZE, location.1 as f32 * ROOM_SIZE)
@@ -29,21 +29,24 @@ lazy_static! {
             allowed_copies: 1,
             iid: "ac9b33c2-6280-11ee-baef-b119038a937a".into(),
             room_level: HashSet::from([RoomLevel::Ground]),
-            card: None
+            card: None,
+            door_connections: 0b0100
         },
         Room {
             name: "Hallway-2x0y".into(),
             allowed_copies: 4,
             iid: "078ebb40-6280-11ee-81c9-dd1f0b0b06bd".into(),
             room_level: HashSet::from([RoomLevel::Ground, RoomLevel::Upper]),
-            card: None
+            card: None,
+            door_connections: 0b0101
         },
         Room {
             name: "Hallway-2x2y".into(),
             allowed_copies: 2,
             iid: "f2a4fac0-6280-11ee-8d3e-0d30e91a8fca".into(),
-            room_level: HashSet::from([]),
-            card: None
+            room_level: HashSet::from([RoomLevel::Ground, RoomLevel::Upper]),
+            card: None,
+            door_connections: 0b1111
         }
     ];
 }
@@ -82,19 +85,11 @@ mod ldtk {
     }
 }
 
-#[derive(PartialEq, Hash, Eq)]
-pub enum RoomEnterExit {
-    Enter,
-    Exit,
-}
-
 #[derive(Event, Hash, PartialEq, Eq)]
 pub struct RoomBoundsHitEvent {
     pub character_entity: Entity,
     pub room_entity: Entity,
     pub room: Room,
-    pub door_location: DoorLocation,
-    pub movement_type: RoomEnterExit,
 }
 
 #[derive(AssetCollection, Resource)]
@@ -128,19 +123,11 @@ pub enum RoomLevel {
     Upper,
 }
 
-#[derive(Component, Reflect, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum DoorLocation {
-    Top,
-    Right,
-    Bottom,
-    Left,
-}
-
 #[derive(Derivative, Component, Debug, Clone, Reflect)]
 #[derivative(Hash, Eq, PartialEq)]
 pub struct Room {
     pub name: String,
-    iid: String,
+    pub iid: String,
     #[derivative(Hash = "ignore")]
     #[derivative(PartialEq = "ignore")]
     room_level: HashSet<RoomLevel>,
@@ -148,6 +135,14 @@ pub struct Room {
     #[derivative(Hash = "ignore")]
     #[derivative(PartialEq = "ignore")]
     pub card: Option<CardType>,
+
+    /// ```rust
+    /// // up    = 0b1000
+    /// // right = 0b0100
+    /// // down  = 0b0010
+    /// // left  = 0b0001
+    /// ```
+    pub door_connections: u8,
 }
 
 pub struct RoomPlugin;
@@ -163,7 +158,6 @@ impl Plugin for RoomPlugin {
             })
             .register_type::<Room>()
             .register_type::<HashSet<RoomLevel>>()
-            .register_type::<DoorLocation>()
             .add_event::<RoomBoundsHitEvent>()
             .register_ldtk_int_cell::<NonWalkableBundle>(LayerMask::NonWalkable as i32)
             .register_ldtk_int_cell::<RoomBoundBundle>(LayerMask::RoomBound as i32)
@@ -204,17 +198,23 @@ fn spawn_room(
     let ldtk_handle = &room_assets.ldtk_asset;
     let world_pos = room_location_to_position((put_at.x, put_at.y));
 
-    commands.spawn(RoomBundle {
-        ldtk: LdtkWorldBundle {
-            ldtk_handle: ldtk_handle.clone(),
-            level_set: LevelSet::from_iid(room.iid.to_owned()),
-            transform: Transform::from_xyz(world_pos.x, world_pos.y, -1.),
-            ..default()
+    commands.spawn((
+        RoomBundle {
+            ldtk: LdtkWorldBundle {
+                ldtk_handle: ldtk_handle.clone(),
+                level_set: LevelSet::from_iid(room.iid.to_owned()),
+                transform: Transform::from_xyz(world_pos.x, world_pos.y, -1.),
+                ..default()
+            },
+            name: Name::new(room.name.to_owned()),
+            room: room.to_owned(),
+            location: put_at,
         },
-        name: Name::new(room.name.to_owned()),
-        room: room.to_owned(),
-        location: put_at,
-    });
+        Aabb {
+            half_extents: Vec3::new(ROOM_SIZE / 2., ROOM_SIZE / 2., 0.).into(),
+            center: Vec3::new(ROOM_SIZE / 2., ROOM_SIZE / 2., 0.).into(),
+        },
+    ));
 
     if counter.rooms.contains_key(&room) {
         *counter.rooms.get_mut(&room).unwrap() += 1;
@@ -391,21 +391,8 @@ fn spawn_room_bounds(
         let Some(grid_coords) = level_to_room_bound_locations.get(&entity) else {
             continue;
         };
-        let int_grid_bounds_max: i32 = INT_GRID_TILE_COUNT_PER_AXIS - 1;
-        let int_grid_bounds_min: i32 = 0;
 
         for coord in grid_coords {
-            let door_location: DoorLocation;
-            if coord.x == int_grid_bounds_max {
-                door_location = DoorLocation::Right;
-            } else if coord.x == int_grid_bounds_min {
-                door_location = DoorLocation::Left;
-            } else if coord.y == int_grid_bounds_max {
-                door_location = DoorLocation::Top;
-            } else {
-                door_location = DoorLocation::Bottom;
-            }
-
             let collider = commands
                 .spawn((
                     Collider::cuboid(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2.),
@@ -426,7 +413,6 @@ fn spawn_room_bounds(
                         ..Default::default()
                     },
                     RoomBoundComponent,
-                    door_location,
                 ))
                 .id();
 
@@ -540,50 +526,35 @@ fn spawn_walkable_navtiles(
 }
 
 fn check_room_entry_or_exit(
-    mut collision_event: EventReader<CollisionEvent>,
-    player_query: Query<(Entity, &GridCoords), With<Player>>,
-    room_bound_query: Query<(&Parent, &DoorLocation), With<RoomBoundComponent>>,
-    room_query: Query<(&Room, &GridCoords, Entity), With<Room>>,
+    mut player_query: Query<(Entity, &GlobalTransform, &mut Player), With<Player>>,
+    room_query: Query<(&Room, Entity, &Aabb, &GlobalTransform), With<Room>>,
     mut room_event: EventWriter<RoomBoundsHitEvent>,
 ) {
-    let mut events_to_send = HashSet::<RoomBoundsHitEvent>::new();
-    for collision in &mut collision_event {
-        let CollisionEvent::Started(ent1, ent2, _) = collision else {
-            continue;
-        };
+    let Ok((player_entity, player_transform, mut player)) = player_query.get_single_mut() else {
+        return;
+    };
 
-        let Some(((player_entity, player_coords), collision_entity)) =
-            player_query.get_either_returning_other(*ent1, *ent2)
-        else {
-            continue;
-        };
+    for (room, room_entity, room_aabb, room_transform) in &room_query {
+        let tx = room_transform.translation() + Vec3::new(ROOM_SIZE / 2., ROOM_SIZE / 2., 0.);
 
-        let Ok((room_bound, door_location)) = room_bound_query.get(collision_entity) else {
-            continue;
-        };
-        let Ok((room, coords, room_entity)) = room_query.get(room_bound.get()) else {
-            continue;
-        };
+        if let Some(Collision::Inside) = collide(
+            tx,
+            room_aabb.half_extents.truncate() * 2.,
+            player_transform.translation(),
+            Vec2::ONE,
+        ) {
+            if room == &player.in_room {
+                continue;
+            }
 
-        let movement_type: RoomEnterExit;
+            player.in_room = room.clone();
 
-        if coords == player_coords {
-            movement_type = RoomEnterExit::Exit;
-        } else {
-            movement_type = RoomEnterExit::Enter;
-        };
-
-        events_to_send.insert(RoomBoundsHitEvent {
-            character_entity: player_entity,
-            room_entity,
-            room: room.clone(),
-            door_location: *door_location,
-            movement_type,
-        });
-    }
-
-    for evt in events_to_send {
-        room_event.send(evt);
+            room_event.send(RoomBoundsHitEvent {
+                character_entity: player_entity,
+                room_entity,
+                room: room.clone(),
+            })
+        }
     }
 }
 

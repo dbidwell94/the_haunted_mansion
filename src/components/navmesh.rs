@@ -1,9 +1,9 @@
 use bevy::gizmos::prelude::*;
 use bevy::prelude::*;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
+use bevy::utils::HashMap;
 use bevy_ecs_ldtk::prelude::*;
 use futures_lite::future;
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use super::INT_TILE_SIZE;

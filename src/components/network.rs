@@ -1,16 +1,16 @@
-use std::collections::VecDeque;
-
 use super::{
     character::{
-        spawn_network_player, CharacterProps, CharacterWalk, NetworkPlayer, NetworkTransform,
-        Player,
+        spawn_network_player, CharacterProps, CharacterType, CharacterWalk, NetworkPlayer,
+        NetworkTransform, Player,
     },
     NavmeshAnswerEvent,
 };
 use bevy::prelude::*;
+use bevy::utils::HashMap;
 use bevy_ecs_ldtk::GridCoords;
 use bevy_matchbox::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 
 const ROOM_URL: &'static str = "ws://devinserver.biddydev.com:3536/haunted_mansion";
 
@@ -30,6 +30,10 @@ enum NetworkEvent {
         props: CharacterProps,
     },
     PropsFor(CharacterProps),
+    RoomSpawned {
+        position: Vec2,
+        room_id: String,
+    },
 }
 
 pub struct NetworkPlugin;
@@ -63,6 +67,13 @@ impl Plugin for NetworkPlugin {
 pub struct LobbyConfig {
     pub requested_players: usize,
     pub force_start: bool,
+}
+
+#[derive(Resource, Serialize, Deserialize, Debug)]
+pub struct NetworkedLobby {
+    turn_index: usize,
+    turn_order: Vec<PeerId>,
+    characters: HashMap<CharacterType, PeerId>,
 }
 
 #[derive(Event)]
@@ -196,6 +207,7 @@ fn recieve_remote_state(
             NetworkEvent::PropsFor(recv_props) => {
                 *props = recv_props;
             }
+            _ => todo!(),
         }
     }
 }
