@@ -63,7 +63,7 @@ fn build_main_ui_layout(
     let root_entity = root(c_root, &asset_server, &mut commands, |p| {
         node(c_character_list, p, |p| {
             for _ in 0..lobby.requested_players + 1 {
-                node(c_inventory_box, p, |p| {});
+                node(c_inventory_box, p, |_p| {});
             }
         });
 
