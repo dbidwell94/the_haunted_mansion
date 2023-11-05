@@ -220,12 +220,7 @@ pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>)
             ActiveEvents::COLLISION_EVENTS,
             Collider::compound(vec![(Vec2::new(0., 2.), 0., Collider::cuboid(4., 2.))]),
         ))
-        .insert((
-            Selectable,
-            AabbGizmo {
-                color: Some(Color::RED),
-            },
-        ));
+        .insert((Selectable,));
 }
 
 pub fn spawn_network_player(

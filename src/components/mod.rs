@@ -21,7 +21,7 @@ pub use navmesh::{
 };
 pub use network::{LobbyConfig, StartMultiplayer};
 pub use room::setup_first_rooms;
-pub use room::{Room, INT_TILE_SIZE};
+pub use room::{Room, INT_TILE_SIZE, ROOM_SIZE};
 
 pub struct ComponentPlugin;
 

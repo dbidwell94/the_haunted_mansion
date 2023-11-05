@@ -1,4 +1,5 @@
 use super::{card::CardType, character::Player, navmesh::*};
+use crate::prelude::character_transform_to_pos_in_room;
 use crate::GameState;
 use bevy::math::Vec3A;
 use bevy::render::primitives::Aabb;
@@ -15,7 +16,7 @@ use derivative::Derivative;
 use lazy_static::lazy_static;
 use ldtk::*;
 
-const ROOM_SIZE: f32 = 96.0;
+pub const ROOM_SIZE: f32 = 96.0;
 pub const INT_TILE_SIZE: f32 = 8.;
 
 fn room_location_to_position(location: (i32, i32)) -> Vec2 {
@@ -143,6 +144,14 @@ pub struct Room {
     /// // left  = 0b0001
     /// ```
     pub door_connections: u8,
+}
+
+#[repr(u8)]
+pub enum DoorLocation {
+    Up = 0b1000,
+    Right = 0b0100,
+    Down = 0b0010,
+    Left = 0b0001,
 }
 
 pub struct RoomPlugin;
@@ -351,9 +360,6 @@ fn spawn_wall_colliders(
                         half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
                         ..Default::default()
                     },
-                    // AabbGizmo {
-                    //     color: Some(Color::RED),
-                    // },
                 ))
                 .id();
 
@@ -445,9 +451,6 @@ fn spawn_room_bounds(
                         half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
                         ..Default::default()
                     },
-                    // AabbGizmo {
-                    //     color: Some(Color::GREEN),
-                    // },
                 ))
                 .id();
 
@@ -513,9 +516,6 @@ fn spawn_walkable_navtiles(
                         half_extents: Vec3A::new(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 0.5),
                         ..Default::default()
                     },
-                    // AabbGizmo {
-                    //     color: Some(Color::GREEN),
-                    // },
                     Name::new("Walkable"),
                 ))
                 .id();
@@ -530,7 +530,8 @@ fn check_room_entry_or_exit(
     room_query: Query<(&Room, Entity, &Aabb, &GlobalTransform), With<Room>>,
     mut room_event: EventWriter<RoomBoundsHitEvent>,
 ) {
-    let Ok((player_entity, player_transform, mut player)) = player_query.get_single_mut() else {
+    let Ok((player_entity, player_global_transform, mut player)) = player_query.get_single_mut()
+    else {
         return;
     };
 
@@ -540,7 +541,7 @@ fn check_room_entry_or_exit(
         if let Some(Collision::Inside) = collide(
             tx,
             room_aabb.half_extents.truncate() * 2.,
-            player_transform.translation(),
+            player_global_transform.translation(),
             Vec2::ONE,
         ) {
             if room == &player.in_room {
@@ -548,6 +549,12 @@ fn check_room_entry_or_exit(
             }
 
             player.in_room = room.clone();
+
+            let player_pos_in_room = character_transform_to_pos_in_room(
+                player_global_transform,
+                room_transform,
+                room_aabb,
+            );
 
             room_event.send(RoomBoundsHitEvent {
                 character_entity: player_entity,
