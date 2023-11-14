@@ -282,7 +282,7 @@ fn spawn_wall_colliders(
     mut commands: Commands,
     non_walkable_query: Query<(&GridCoords, &Parent), Added<NonWalkable>>,
     parent_query: Query<&Parent, Without<NonWalkable>>,
-    grandparent_query: Query<&Parent, With<Handle<LdtkLevel>>>,
+    grandparent_query: Query<&Parent, With<LevelIid>>,
     room_query: Query<(Entity, &GridCoords), With<Room>>,
     navmesh: Query<Entity, With<NavmeshParent>>,
 ) {
@@ -371,7 +371,7 @@ fn spawn_room_bounds(
     mut commands: Commands,
     non_walkable_query: Query<(&GridCoords, &Parent), Added<RoomBound>>,
     parent_query: Query<&Parent, Without<RoomBound>>,
-    grandparent_query: Query<&Parent, With<Handle<LdtkLevel>>>,
+    grandparent_query: Query<&Parent, With<LevelIid>>,
     room_query: Query<(Entity, &GridCoords), With<Room>>,
     navmesh: Query<Entity, With<NavmeshParent>>,
 ) {
@@ -462,7 +462,7 @@ fn spawn_walkable_navtiles(
     mut commands: Commands,
     walkable_query: Query<(&GridCoords, &Parent), Added<Walkable>>,
     parent_query: Query<&Parent, Without<Walkable>>,
-    grandparent_query: Query<&Parent, With<Handle<LdtkLevel>>>,
+    grandparent_query: Query<&Parent, With<LevelIid>>,
     room_query: Query<(Entity, &GridCoords), With<Room>>,
     navmesh: Query<Entity, With<NavmeshParent>>,
 ) {
