@@ -93,7 +93,7 @@ fn rebuild_navmesh(
     navmesh_grid: ResMut<MeshGrid>,
 ) {
     let mut reset = false;
-    for _ in &mut reset_request {
+    for _ in &mut reset_request.read() {
         reset = true;
     }
 
@@ -118,7 +118,7 @@ fn listen_for_navmesh_requests(
         return;
     }
     let thread_pool = AsyncComputeTaskPool::get();
-    for move_request in &mut request_listener {
+    for move_request in &mut request_listener.read() {
         let move_request = move_request.clone();
         let arc_grid = navmesh_grid.grids_and_weights.clone();
         let task = thread_pool.spawn(async move { pathfind(move_request, arc_grid) });

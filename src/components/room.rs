@@ -58,7 +58,7 @@ mod ldtk {
     #[derive(Component, Default)]
     pub struct NonWalkable;
 
-    #[derive(LdtkIntCell, Bundle)]
+    #[derive(LdtkIntCell, Bundle, Default)]
     pub struct NonWalkableBundle {
         non_walkable: NonWalkable,
     }
@@ -69,7 +69,7 @@ mod ldtk {
     #[derive(Component)]
     pub struct RoomBoundComponent;
 
-    #[derive(LdtkIntCell, Bundle)]
+    #[derive(LdtkIntCell, Bundle, Default)]
     pub struct RoomBoundBundle {
         room_bound: RoomBound,
     }
@@ -80,7 +80,7 @@ mod ldtk {
     #[derive(Component)]
     pub struct WalkableComponent;
 
-    #[derive(LdtkIntCell, Bundle)]
+    #[derive(LdtkIntCell, Bundle, Default)]
     pub struct WalkableBundle {
         walkable: Walkable,
     }
@@ -206,12 +206,11 @@ fn spawn_room(
 ) {
     let ldtk_handle = &room_assets.ldtk_asset;
     let world_pos = room_location_to_position((put_at.x, put_at.y));
-
     commands.spawn((
         RoomBundle {
             ldtk: LdtkWorldBundle {
                 ldtk_handle: ldtk_handle.clone(),
-                level_set: LevelSet::from_iid(room.iid.to_owned()),
+                level_set: LevelSet::from_iids([room.iid.to_owned()]),
                 transform: Transform::from_xyz(world_pos.x, world_pos.y, -1.),
                 ..default()
             },

@@ -17,7 +17,6 @@ mod prelude;
 mod ui;
 mod utils;
 
-
 #[derive(Default, Eq, PartialEq, Debug, Hash, Clone, States)]
 pub enum GameState {
     #[default]
@@ -37,7 +36,9 @@ fn main() {
         .add_plugins((
             DefaultPlugins
                 .build()
-                .add_before::<bevy::asset::AssetPlugin, _>(EmbeddedAssetPlugin)
+                .add_before::<bevy::asset::AssetPlugin, _>(EmbeddedAssetPlugin {
+                    ..Default::default()
+                })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "The Haunted Mansion".into(),
@@ -46,13 +47,13 @@ fn main() {
                     }),
                     ..default()
                 })
-                .set(RenderPlugin {
-                    wgpu_settings: WgpuSettings {
-                        #[cfg(target_os = "windows")]
-                        backends: Some(bevy::render::settings::Backends::DX12),
-                        ..default()
-                    },
-                })
+                // .set(RenderPlugin {
+                //     wgpu_settings: WgpuSettings {
+                //         #[cfg(target_os = "windows")]
+                //         backends: Some(bevy::render::settings::Backends::DX12),
+                //         ..default()
+                //     },
+                // })
                 .set(ImagePlugin::default_nearest()),
             LdtkPlugin,
             #[cfg(debug_assertions)]

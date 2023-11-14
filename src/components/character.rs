@@ -474,7 +474,7 @@ fn check_pathfinding_answer(
         return;
     };
 
-    for pathfinding_event in &mut pathfinding_event_received {
+    for pathfinding_event in &mut pathfinding_event_received.read() {
         if pathfinding_event.requesting_entity != player_entity {
             continue;
         }
