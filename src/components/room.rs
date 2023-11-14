@@ -96,7 +96,7 @@ pub struct RoomBoundsHitEvent {
 #[derive(AssetCollection, Resource)]
 pub struct RoomAssets {
     #[asset(path = "ldtk/haunted.ldtk")]
-    ldtk_asset: Handle<LdtkAsset>,
+    ldtk_asset: Handle<LdtkProject>,
 }
 
 #[repr(i32)]

@@ -93,7 +93,7 @@ fn listen_for_start_multiplayer(
     mut evt: EventReader<StartMultiplayer>,
     maybe_started: Option<Res<MatchboxSocket<SingleChannel>>>,
 ) {
-    for _ in &mut evt {
+    for _ in &mut evt.read() {
         if maybe_started.is_some() {
             return;
         }
@@ -229,7 +229,7 @@ fn broadcast_player_pathfinding(
         .filter(|p| p != &self_id)
         .collect::<Vec<_>>();
 
-    for NavmeshAnswerEvent { path, .. } in &mut pathfinding_event {
+    for NavmeshAnswerEvent { path, .. } in &mut pathfinding_event.read() {
         let path = path.clone().ok().unwrap_or(Vec::new());
 
         let Ok(data_to_send) = bincode::serialize(&NetworkEvent::PlayerPathing(
