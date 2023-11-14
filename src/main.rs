@@ -2,7 +2,10 @@
 
 use bevy::{
     prelude::*,
-    render::{settings::WgpuSettings, RenderPlugin},
+    render::{
+        settings::{RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
     window::{CursorGrabMode, PrimaryWindow, WindowMode},
 };
 use bevy_asset_loader::prelude::*;
@@ -47,13 +50,13 @@ fn main() {
                     }),
                     ..default()
                 })
-                // .set(RenderPlugin {
-                //     wgpu_settings: WgpuSettings {
-                //         #[cfg(target_os = "windows")]
-                //         backends: Some(bevy::render::settings::Backends::DX12),
-                //         ..default()
-                //     },
-                // })
+                .set(RenderPlugin {
+                    render_creation: RenderCreation::Automatic(WgpuSettings {
+                        #[cfg(target_os = "windows")]
+                        backends: Some(bevy::render::settings::Backends::DX12),
+                        ..default()
+                    }),
+                })
                 .set(ImagePlugin::default_nearest()),
             LdtkPlugin,
             #[cfg(debug_assertions)]
