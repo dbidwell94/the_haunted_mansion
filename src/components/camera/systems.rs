@@ -1,39 +1,9 @@
-use super::{character::CharacterInput, MouseToWorldCoords, Selectable};
-use crate::ui::OccludeUI;
-use crate::GameState;
-use bevy::render::primitives::Aabb;
-use bevy::sprite::collide_aabb::collide;
-use bevy::window::PrimaryWindow;
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
-use leafwing_input_manager::prelude::*;
+use super::{components::*, CAMERA_MOVE_SPEED};
+use crate::{components::{character::CharacterInput, MouseToWorldCoords, Selectable}, ui::OccludeUI};
+use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, render::primitives::Aabb, sprite::collide_aabb::collide, window::PrimaryWindow};
+use leafwing_input_manager::action_state::ActionState;
 
-const CAMERA_MOVE_SPEED: f32 = 200.;
-
-pub struct CameraPlugin;
-
-impl Plugin for CameraPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::MainMenu), spawn_camera)
-            .add_systems(Update, lerp_to_object.run_if(in_state(GameState::Main)))
-            .add_systems(Update, move_camera_anchor.run_if(in_state(GameState::Main)))
-            .add_systems(
-                Update,
-                focus_on_selectable.run_if(in_state(GameState::Main)),
-            )
-            .add_systems(
-                Update,
-                update_mouse_coords.run_if(in_state(GameState::Main)),
-            );
-    }
-}
-
-#[derive(Component, Default)]
-pub struct PlayerCamera;
-
-#[derive(Component)]
-struct CameraAnchor;
-
-fn spawn_camera(mut commands: Commands) {
+pub fn spawn_camera(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scale = 0.25;
     camera_bundle.camera_2d.clear_color = ClearColorConfig::Custom(Color::BLACK);
@@ -47,7 +17,7 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn((camera_bundle, PlayerCamera));
 }
 
-fn move_camera_anchor(
+pub fn move_camera_anchor(
     mut commands: Commands,
     mut anchor: Query<
         (&mut Transform, Option<&Parent>, Entity, &GlobalTransform),
@@ -78,7 +48,7 @@ fn move_camera_anchor(
     transform.translation += vec_input.extend(0.) * CAMERA_MOVE_SPEED * time.delta_seconds();
 }
 
-fn lerp_to_object(
+pub fn lerp_to_object(
     mut cam_query: Query<&mut Transform, (With<PlayerCamera>, Without<CameraAnchor>)>,
     entities: Query<&GlobalTransform, With<CameraAnchor>>,
 ) {
@@ -94,7 +64,7 @@ fn lerp_to_object(
         .lerp(anchor_transform.translation(), 0.15);
 }
 
-fn focus_on_selectable(
+pub fn focus_on_selectable(
     mut commands: Commands,
     mouse_coords: Res<MouseToWorldCoords>,
     player_input: Query<&ActionState<CharacterInput>>,
@@ -129,7 +99,7 @@ fn focus_on_selectable(
     }
 }
 
-fn update_mouse_coords(
+pub fn update_mouse_coords(
     mut mouse_to_world_coords: ResMut<MouseToWorldCoords>,
     occluded_ui: Query<(&GlobalTransform, &Node), With<OccludeUI>>,
     q_window: Query<&Window, With<PrimaryWindow>>,

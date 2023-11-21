@@ -2,7 +2,10 @@
 
 use bevy::{
     prelude::*,
-    render::{settings::WgpuSettings, RenderPlugin},
+    render::{
+        settings::{RenderCreation, WgpuSettings},
+        RenderPlugin,
+    },
     window::{CursorGrabMode, PrimaryWindow, WindowMode},
 };
 use bevy_asset_loader::prelude::*;
@@ -16,7 +19,6 @@ mod events;
 mod prelude;
 mod ui;
 mod utils;
-
 
 #[derive(Default, Eq, PartialEq, Debug, Hash, Clone, States)]
 pub enum GameState {
@@ -37,7 +39,9 @@ fn main() {
         .add_plugins((
             DefaultPlugins
                 .build()
-                .add_before::<bevy::asset::AssetPlugin, _>(EmbeddedAssetPlugin)
+                .add_before::<bevy::asset::AssetPlugin, _>(EmbeddedAssetPlugin {
+                    ..Default::default()
+                })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "The Haunted Mansion".into(),
@@ -47,11 +51,11 @@ fn main() {
                     ..default()
                 })
                 .set(RenderPlugin {
-                    wgpu_settings: WgpuSettings {
+                    render_creation: RenderCreation::Automatic(WgpuSettings {
                         #[cfg(target_os = "windows")]
                         backends: Some(bevy::render::settings::Backends::DX12),
                         ..default()
-                    },
+                    }),
                 })
                 .set(ImagePlugin::default_nearest()),
             LdtkPlugin,

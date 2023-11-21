@@ -3,25 +3,27 @@ name = "the_haunted_mansion"
 version = "0.0.1"
 edition = "2021"
 
-
+[patch.crates-io]
+bevy_ecs_ldtk = { git = "https://github.com/trouv/bevy_ecs_ldtk", branch = "feat/bevy-0.12" }
+bevy_ecs_tilemap = { git = "https://github.com/divark/bevy_ecs_tilemap", branch = "0.12-fixes" }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.11", features = ["wayland"] }
-leafwing-input-manager = "0.10"
+bevy = { version = "0.12.0", features = ["wayland"] }
+leafwing-input-manager = "0.11.0"
 bevy_ecs_ldtk = "0.8"
-bevy-inspector-egui = "0.20"
+bevy-inspector-egui = "0.21.0"
 lazy_static = "1.4"
 derivative = "2.2"
-bevy_asset_loader = { version = "0.17", features = ["2d"] }
-bevy_rapier2d = "0.22"
-bevy-ui-dsl = "0.6"
-bevy_embedded_assets = "0.8"
+bevy_asset_loader = { version = "0.18.0", features = ["2d"] }
+bevy_rapier2d = "0.23.0"
+bevy-ui-dsl = "0.7.1"
+bevy_embedded_assets = "0.9.1"
 rand = "0.8"
 futures-lite = "2.0"
 pathfinding = "4.3"
-bevy_matchbox = { version = "0.7" }
+bevy_matchbox = { version = "0.8.0" }
 serde = { version = "1.0.190", features = ["derive"] }
 bincode = { version = "1.3.3" }
 
