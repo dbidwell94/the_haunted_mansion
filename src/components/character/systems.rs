@@ -1,162 +1,23 @@
-use super::room::{setup_first_rooms, Room, LDTK_ROOMS};
-use super::{MouseToWorldCoords, MoveRequest, NavmeshAnswerEvent, Selectable, INT_TILE_SIZE};
+use std::collections::VecDeque;
+
+use crate::components::MouseToWorldCoords;
+use crate::components::MoveRequest;
+use crate::components::NavmeshAnswerEvent;
+use crate::components::Selectable;
+use crate::components::INT_TILE_SIZE;
 use crate::GameState;
+
+use super::components::*;
+use super::resources::*;
+use super::CHARACTER_MOVE_SPEED;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-use bevy_asset_loader::asset_collection::AssetCollection;
-use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::GridCoords;
-use bevy_matchbox::prelude::PeerId;
+use bevy_matchbox::matchbox_socket::PeerId;
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use rand::prelude::*;
-use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
-use std::ops::Mul;
-
-const CHARACTER_MOVE_SPEED: f32 = 45.0;
-
-#[derive(Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum CharacterType {
-    Professor,
-    Fbi,
-}
-
-#[derive(Actionlike, Reflect, Clone)]
-pub enum CharacterInput {
-    TogglePause,
-    RotateRoom,
-    WalkSelect,
-    SelectObject,
-    MoveCamera,
-}
-
-#[derive(AssetCollection, Resource)]
-pub struct CharacterWalk {
-    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
-    #[asset(path = "sprites/sheets/professor_walk.png")]
-    professor: Handle<TextureAtlas>,
-    #[asset(texture_atlas(tile_size_x = 64., tile_size_y = 64., columns = 9, rows = 4))]
-    #[asset(path = "sprites/sheets/fbi_walk.png")]
-    fbi: Handle<TextureAtlas>,
-}
-
-#[derive(AssetCollection, Resource)]
-pub struct Headshots {
-    #[asset(path = "sprites/professor_headshot.png")]
-    pub professor_headshot: Handle<Image>,
-    #[asset(path = "sprites/fbi_headshot.png")]
-    pub fbi_headshot: Handle<Image>,
-}
-
-#[derive(Component, Default, Clone, Debug, Reflect, Serialize, Deserialize)]
-pub struct CharacterProps {
-    pub speed: u8,
-    pub might: u8,
-    pub sanity: u8,
-    pub knowledge: u8,
-}
-
-#[repr(usize)]
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
-#[allow(dead_code)]
-enum CharacterFacing {
-    Up = 0,
-    Left = 1,
-    Down = 2,
-    #[default]
-    Right = 3,
-}
-
-#[derive(Component)]
-pub struct Player {
-    move_path: VecDeque<GridCoords>,
-    move_to: Option<GridCoords>,
-    pub in_room: Room,
-}
-
-impl Default for Player {
-    fn default() -> Self {
-        Self {
-            move_path: Default::default(),
-            move_to: Default::default(),
-            in_room: LDTK_ROOMS
-                .iter()
-                .find(|r| r.name.to_lowercase().contains("entry"))
-                .unwrap()
-                .clone(),
-        }
-    }
-}
-
-#[derive(Component)]
-pub struct NetworkPlayer {
-    pub player_id: PeerId,
-}
-
-#[derive(Component, Default)]
-pub struct NetworkTransform {
-    pub move_path: VecDeque<GridCoords>,
-    pub move_to: Option<GridCoords>,
-}
-
-impl Mul<usize> for CharacterFacing {
-    type Output = usize;
-
-    fn mul(self, rhs: usize) -> Self::Output {
-        (self as usize) * rhs
-    }
-}
-
-#[derive(Component)]
-struct AnimationTimer {
-    pub timer: Timer,
-    pub frame_count: usize,
-    pub walking: bool,
-    pub cols: usize,
-    pub facing: CharacterFacing,
-}
-
-pub struct CharacterPlugin;
-
-impl Plugin for CharacterPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_collection_to_loading_state::<_, CharacterWalk>(GameState::Loading)
-            .add_collection_to_loading_state::<_, Headshots>(GameState::Loading)
-            .register_type::<CharacterProps>()
-            .add_plugins(InputManagerPlugin::<CharacterInput>::default())
-            .add_systems(
-                OnEnter(GameState::InitialSpawn),
-                spawn_character_player.after(setup_first_rooms),
-            )
-            .add_systems(
-                Update,
-                update_character_animation
-                    .after(move_player)
-                    .run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
-            )
-            .add_systems(
-                Update,
-                listen_for_pause
-                    .run_if(in_state(GameState::Paused).or_else(in_state(GameState::Main))),
-            )
-            .add_systems(
-                Update,
-                request_pathfinding.run_if(in_state(GameState::Main)),
-            )
-            .add_systems(
-                Update,
-                check_pathfinding_answer.run_if(in_state(GameState::Main)),
-            )
-            .add_systems(
-                Update,
-                (move_player, move_network_player)
-                    .run_if(in_state(GameState::Main).or_else(in_state(GameState::Paused))),
-            )
-            .add_systems(OnExit(GameState::Main), on_main_exit);
-    }
-}
 
 pub fn spawn_character_player(mut commands: Commands, asset: Res<CharacterWalk>) {
     let sprite = TextureAtlasSprite {
@@ -268,7 +129,7 @@ pub fn spawn_network_player(
         .insert(Selectable);
 }
 
-fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {
+pub fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {
     let Ok(mut player_velocity) = player_velocity.get_single_mut() else {
         return;
     };
@@ -276,7 +137,7 @@ fn on_main_exit(mut player_velocity: Query<&mut Velocity, With<Player>>) {
     player_velocity.linvel = Vec2::ZERO;
 }
 
-fn update_character_animation(
+pub fn update_character_animation(
     mut sprites: Query<(&mut TextureAtlasSprite, &mut AnimationTimer, Entity)>,
     movement: Query<
         (&Velocity, Option<&Player>, Option<&NetworkTransform>),
@@ -340,7 +201,7 @@ fn update_character_animation(
     }
 }
 
-fn listen_for_pause(
+pub fn listen_for_pause(
     game_state: Res<State<GameState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     input_query: Query<&ActionState<CharacterInput>, With<Player>>,
@@ -361,7 +222,7 @@ fn listen_for_pause(
     }
 }
 
-fn move_player(
+pub fn move_player(
     mut player_query: Query<(&mut Velocity, &mut Player, &Transform), With<Player>>,
     time: Res<Time>,
 ) {
@@ -396,7 +257,7 @@ fn move_player(
     velocity.linvel = direction * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
 }
 
-fn move_network_player(
+pub fn move_network_player(
     mut player_query: Query<
         (&mut Velocity, &mut NetworkTransform, &Transform),
         With<NetworkTransform>,
@@ -432,7 +293,7 @@ fn move_network_player(
     }
 }
 
-fn request_pathfinding(
+pub fn request_pathfinding(
     mouse: Res<MouseToWorldCoords>,
     player_input: Query<(&ActionState<CharacterInput>, &Transform, Entity), With<Player>>,
     mut pathfinding_request: EventWriter<MoveRequest>,
@@ -465,7 +326,7 @@ fn request_pathfinding(
     }
 }
 
-fn check_pathfinding_answer(
+pub fn check_pathfinding_answer(
     mut gizmos: Gizmos,
     mut pathfinding_event_received: EventReader<NavmeshAnswerEvent>,
     mut player: Query<(Entity, &mut Player), With<Player>>,

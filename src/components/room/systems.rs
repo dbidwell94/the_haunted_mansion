@@ -1,202 +1,24 @@
-use super::{card::CardType, character::Player, navmesh::*};
-use crate::prelude::character_transform_to_pos_in_room;
-use crate::GameState;
+use super::components::{ldtk::*, *};
+use super::LDTK_ROOMS;
+use super::ROOM_SIZE;
+use super::{resources::*, INT_TILE_SIZE};
+use crate::components::character::Player;
+use crate::components::navmesh::NavmeshParent;
+use crate::components::{NavmeshBundle, NavmeshTileBundle};
+use crate::prelude::*;
 use bevy::math::Vec3A;
+use bevy::prelude::*;
 use bevy::render::primitives::Aabb;
-use bevy::sprite::collide_aabb::collide;
-use bevy::sprite::collide_aabb::Collision;
-use bevy::{
-    prelude::*,
-    utils::{HashMap, HashSet},
-};
-use bevy_asset_loader::prelude::*;
+use bevy::sprite::collide_aabb::{collide, Collision};
+use bevy::utils::{HashMap, HashSet};
 use bevy_ecs_ldtk::prelude::*;
 use bevy_rapier2d::prelude::*;
-use derivative::Derivative;
-use lazy_static::lazy_static;
-use ldtk::*;
-
-pub const ROOM_SIZE: f32 = 96.0;
-pub const INT_TILE_SIZE: f32 = 8.;
 
 fn room_location_to_position(location: (i32, i32)) -> Vec2 {
     Vec2::new(location.0 as f32 * ROOM_SIZE, location.1 as f32 * ROOM_SIZE)
 }
 
-lazy_static! {
-    pub static ref LDTK_ROOMS: [Room; 3] = [
-        Room {
-            name: "Entryway".into(),
-            allowed_copies: 1,
-            iid: "ac9b33c2-6280-11ee-baef-b119038a937a".into(),
-            room_level: HashSet::from([RoomLevel::Ground]),
-            card: None,
-            door_connections: 0b0100
-        },
-        Room {
-            name: "Hallway-2x0y".into(),
-            allowed_copies: 4,
-            iid: "078ebb40-6280-11ee-81c9-dd1f0b0b06bd".into(),
-            room_level: HashSet::from([RoomLevel::Ground, RoomLevel::Upper]),
-            card: None,
-            door_connections: 0b0101
-        },
-        Room {
-            name: "Hallway-2x2y".into(),
-            allowed_copies: 2,
-            iid: "f2a4fac0-6280-11ee-8d3e-0d30e91a8fca".into(),
-            room_level: HashSet::from([RoomLevel::Ground, RoomLevel::Upper]),
-            card: None,
-            door_connections: 0b1111
-        }
-    ];
-}
-
-mod ldtk {
-    use bevy::prelude::*;
-    use bevy_ecs_ldtk::prelude::*;
-    #[derive(Component, Default)]
-    pub struct NonWalkable;
-
-    #[derive(LdtkIntCell, Bundle, Default)]
-    pub struct NonWalkableBundle {
-        non_walkable: NonWalkable,
-    }
-
-    #[derive(Component, Default)]
-    pub struct RoomBound;
-
-    #[derive(Component)]
-    pub struct RoomBoundComponent;
-
-    #[derive(LdtkIntCell, Bundle, Default)]
-    pub struct RoomBoundBundle {
-        room_bound: RoomBound,
-    }
-
-    #[derive(Component, Default)]
-    pub struct Walkable;
-
-    #[derive(Component)]
-    pub struct WalkableComponent;
-
-    #[derive(LdtkIntCell, Bundle, Default)]
-    pub struct WalkableBundle {
-        walkable: Walkable,
-    }
-}
-
-#[derive(Event, Hash, PartialEq, Eq)]
-pub struct RoomBoundsHitEvent {
-    pub character_entity: Entity,
-    pub room_entity: Entity,
-    pub room: Room,
-}
-
-#[derive(AssetCollection, Resource)]
-pub struct RoomAssets {
-    #[asset(path = "ldtk/haunted.ldtk")]
-    ldtk_asset: Handle<LdtkProject>,
-}
-
-#[repr(i32)]
-#[allow(dead_code)]
-enum LayerMask {
-    NonWalkable = 1,
-    RoomBound = 2,
-    Walkable = 3,
-}
-
-#[derive(Resource, Clone, Default)]
-pub struct RoomCounter {
-    pub rooms: HashMap<Room, u8>,
-    pub filled_tiles: HashMap<(i32, i32, i8), Room>,
-    pub spawnable_ground: HashMap<Room, u8>,
-    pub spawnable_basement: HashMap<Room, u8>,
-    pub spawnable_upper: HashMap<Room, u8>,
-}
-
-#[derive(Hash, Eq, PartialEq, Debug, Clone, Reflect)]
-#[allow(dead_code)]
-pub enum RoomLevel {
-    Basement,
-    Ground,
-    Upper,
-}
-
-#[derive(Derivative, Component, Debug, Clone, Reflect)]
-#[derivative(Hash, Eq, PartialEq)]
-pub struct Room {
-    pub name: String,
-    pub iid: String,
-    #[derivative(Hash = "ignore")]
-    #[derivative(PartialEq = "ignore")]
-    room_level: HashSet<RoomLevel>,
-    allowed_copies: u8,
-    #[derivative(Hash = "ignore")]
-    #[derivative(PartialEq = "ignore")]
-    pub card: Option<CardType>,
-
-    /// ```rust
-    /// // up    = 0b1000
-    /// // right = 0b0100
-    /// // down  = 0b0010
-    /// // left  = 0b0001
-    /// ```
-    pub door_connections: u8,
-}
-
-#[repr(u8)]
-pub enum DoorLocation {
-    Up = 0b1000,
-    Right = 0b0100,
-    Down = 0b0010,
-    Left = 0b0001,
-}
-
-pub struct RoomPlugin;
-
-impl Plugin for RoomPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_collection_to_loading_state::<_, RoomAssets>(GameState::Loading)
-            .init_resource::<RoomCounter>()
-            .insert_resource(LdtkSettings {
-                level_spawn_behavior: LevelSpawnBehavior::UseZeroTranslation,
-                int_grid_rendering: IntGridRendering::Invisible,
-                ..default()
-            })
-            .register_type::<Room>()
-            .register_type::<HashSet<RoomLevel>>()
-            .add_event::<RoomBoundsHitEvent>()
-            .register_ldtk_int_cell::<NonWalkableBundle>(LayerMask::NonWalkable as i32)
-            .register_ldtk_int_cell::<RoomBoundBundle>(LayerMask::RoomBound as i32)
-            .register_ldtk_int_cell::<WalkableBundle>(LayerMask::Walkable as i32)
-            .add_systems(OnEnter(GameState::InitialSpawn), setup_first_rooms)
-            .add_systems(OnEnter(GameState::InitialSpawn), create_navmesh)
-            .add_systems(Update, spawn_wall_colliders)
-            .add_systems(Update, spawn_room_bounds)
-            .add_systems(Update, spawn_walkable_navtiles)
-            .add_systems(Update, check_room_entry_or_exit);
-    }
-}
-
-#[derive(Component, Default, Debug)]
-pub struct Wall;
-
-#[derive(Bundle, LdtkIntCell, Default, Debug)]
-pub struct WallBundle {
-    wall: Wall,
-}
-
-#[derive(Bundle)]
-struct RoomBundle {
-    ldtk: LdtkWorldBundle,
-    name: Name,
-    room: Room,
-    location: GridCoords,
-}
-
-fn spawn_room(
+pub fn spawn_room(
     commands: &mut Commands,
     room_assets: &Res<RoomAssets>,
     counter: &mut ResMut<RoomCounter>,
@@ -278,7 +100,7 @@ pub fn setup_first_rooms(
     );
 }
 
-fn spawn_wall_colliders(
+pub fn spawn_wall_colliders(
     mut commands: Commands,
     non_walkable_query: Query<(&GridCoords, &Parent), Added<NonWalkable>>,
     parent_query: Query<&Parent, Without<NonWalkable>>,
@@ -367,7 +189,7 @@ fn spawn_wall_colliders(
     }
 }
 
-fn spawn_room_bounds(
+pub fn spawn_room_bounds(
     mut commands: Commands,
     non_walkable_query: Query<(&GridCoords, &Parent), Added<RoomBound>>,
     parent_query: Query<&Parent, Without<RoomBound>>,
@@ -458,7 +280,7 @@ fn spawn_room_bounds(
     }
 }
 
-fn spawn_walkable_navtiles(
+pub fn spawn_walkable_navtiles(
     mut commands: Commands,
     walkable_query: Query<(&GridCoords, &Parent), Added<Walkable>>,
     parent_query: Query<&Parent, Without<Walkable>>,
@@ -524,7 +346,7 @@ fn spawn_walkable_navtiles(
     }
 }
 
-fn check_room_entry_or_exit(
+pub fn check_room_entry_or_exit(
     mut player_query: Query<(Entity, &GlobalTransform, &mut Player), With<Player>>,
     room_query: Query<(&Room, Entity, &Aabb, &GlobalTransform), With<Room>>,
     mut room_event: EventWriter<RoomBoundsHitEvent>,
@@ -564,7 +386,7 @@ fn check_room_entry_or_exit(
     }
 }
 
-fn create_navmesh(mut commands: Commands) {
+pub fn create_navmesh(mut commands: Commands) {
     commands.spawn(NavmeshBundle {
         name: Name::new("Navmesh"),
         transform: Transform::from_xyz(INT_TILE_SIZE / 2., INT_TILE_SIZE / 2., 1.).into(),
