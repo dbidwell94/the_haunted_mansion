@@ -40,7 +40,9 @@ fn main() {
             DefaultPlugins
                 .build()
                 .add_before::<bevy::asset::AssetPlugin, _>(EmbeddedAssetPlugin {
-                    ..Default::default()
+                    mode: bevy_embedded_assets::PluginMode::ReplaceAndFallback {
+                        path: "assets".into(),
+                    },
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -62,8 +64,6 @@ fn main() {
             #[cfg(debug_assertions)]
             WorldInspectorPlugin::new(),
             RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0),
-            // #[cfg(debug_assertions)]
-            // RapierDebugRenderPlugin::default(),
         ))
         .add_plugins((components::ComponentPlugin, crate::ui::UiPlugin))
         .add_systems(
