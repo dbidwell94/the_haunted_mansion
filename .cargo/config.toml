@@ -1,5 +1,6 @@
 [env]
 BEVY_ASSET_PATH = { value = "assets", relative = true }
+LITCRYPT_ENCRYPT_KEY = "9b16c9bcfefa32a02b53e3f067cf4e2a2b33357d8a5a4b67827e96bf7a4a9d3a"
 
 [target.wasm32-unknown-unknown]
 runner = "wasm-server-runner"

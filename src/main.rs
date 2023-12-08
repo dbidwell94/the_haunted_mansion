@@ -13,6 +13,7 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy_embedded_assets::EmbeddedAssetPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier2d::prelude::*;
+use litcrypt::use_litcrypt;
 
 mod components;
 mod events;
@@ -29,6 +30,8 @@ pub enum GameState {
     Main,
     Paused,
 }
+
+use_litcrypt!();
 
 fn main() {
     App::new()

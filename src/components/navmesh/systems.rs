@@ -1,77 +1,13 @@
-use bevy::gizmos::prelude::*;
-use bevy::prelude::*;
-use bevy::tasks::{AsyncComputeTaskPool, Task};
-use bevy::utils::HashMap;
-use bevy_ecs_ldtk::prelude::*;
-use futures_lite::future;
 use std::sync::{Arc, RwLock};
 
-use super::INT_TILE_SIZE;
+use crate::components::INT_TILE_SIZE;
 
-pub struct NavmeshPlugin;
+use super::{components::*, MeshGrid, MoveRequest, NavmeshAnswerEvent, RebuildNavmesh};
+use bevy::{prelude::*, tasks::AsyncComputeTaskPool, utils::HashMap};
+use bevy_ecs_ldtk::prelude::*;
+use futures_lite::future;
 
-impl Plugin for NavmeshPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_event::<NavmeshAnswerEvent>()
-            .add_event::<MoveRequest>()
-            .add_event::<RebuildNavmesh>()
-            .init_resource::<MeshGrid>()
-            .add_systems(Update, update_navmesh)
-            .add_systems(Update, listen_for_navmesh_requests)
-            .add_systems(Update, rebuild_navmesh)
-            .add_systems(Update, debug_tiles)
-            .add_systems(Update, poll_for_pathfinding_completion);
-    }
-}
-
-#[derive(Resource, Default)]
-struct MeshGrid {
-    grids_and_weights: Arc<RwLock<HashMap<GridCoords, WalkableState>>>,
-}
-
-#[derive(Component, Clone, Eq, PartialEq)]
-pub enum WalkableState {
-    NotWalkable,
-    Walkable,
-}
-
-#[derive(Component, Default)]
-pub struct NavmeshParent;
-
-#[derive(Bundle, Default)]
-pub struct NavmeshBundle {
-    pub transform: TransformBundle,
-    pub name: Name,
-    pub navmesh: NavmeshParent,
-}
-
-#[derive(Bundle)]
-pub struct NavmeshTileBundle {
-    pub walkable: WalkableState,
-    pub grid_coord: GridCoords,
-    pub transform: TransformBundle,
-}
-
-#[derive(Event, Debug)]
-pub struct NavmeshAnswerEvent {
-    pub requesting_entity: Entity,
-    pub path: Result<Vec<GridCoords>, ()>,
-}
-
-#[derive(Component)]
-struct PathfindingTask(Task<NavmeshAnswerEvent>);
-
-#[derive(Event, Copy, Clone)]
-pub struct MoveRequest {
-    pub requesting_entity: Entity,
-    pub move_from: GridCoords,
-    pub move_to: GridCoords,
-}
-
-#[derive(Event)]
-pub struct RebuildNavmesh;
-
-fn update_navmesh(
+pub fn update_navmesh(
     changed_walkables: Query<
         (&GridCoords, &WalkableState),
         Or<(Added<WalkableState>, Changed<WalkableState>)>,
@@ -87,7 +23,7 @@ fn update_navmesh(
     }
 }
 
-fn rebuild_navmesh(
+pub fn rebuild_navmesh(
     mut reset_request: EventReader<RebuildNavmesh>,
     walkables: Query<(&GridCoords, &WalkableState), With<WalkableState>>,
     navmesh_grid: ResMut<MeshGrid>,
@@ -109,7 +45,7 @@ fn rebuild_navmesh(
     }
 }
 
-fn listen_for_navmesh_requests(
+pub fn listen_for_navmesh_requests(
     mut commands: Commands,
     mut request_listener: EventReader<MoveRequest>,
     navmesh_grid: Res<MeshGrid>,
@@ -126,7 +62,7 @@ fn listen_for_navmesh_requests(
     }
 }
 
-fn poll_for_pathfinding_completion(
+pub fn poll_for_pathfinding_completion(
     mut commands: Commands,
     mut pathfinding_tasks: Query<(&mut PathfindingTask, Entity)>,
     mut event_sender: EventWriter<NavmeshAnswerEvent>,
@@ -140,7 +76,7 @@ fn poll_for_pathfinding_completion(
 }
 
 /// A* implementation
-fn pathfind(
+pub fn pathfind(
     request: MoveRequest,
     grid: Arc<RwLock<HashMap<GridCoords, WalkableState>>>,
 ) -> NavmeshAnswerEvent {
@@ -192,7 +128,7 @@ fn pathfind(
     };
 }
 
-fn debug_tiles(
+pub fn debug_tiles(
     mut gizmos: Gizmos,
     tiles: Query<(&WalkableState, &GridCoords)>,
     input: Res<Input<KeyCode>>,

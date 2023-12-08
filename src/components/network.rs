@@ -9,10 +9,14 @@ use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_ecs_ldtk::GridCoords;
 use bevy_matchbox::prelude::*;
+use lazy_static::lazy_static;
+use litcrypt::lc;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-const ROOM_URL: &'static str = "ws://devinserver.biddydev.com:3536/haunted_mansion";
+lazy_static! {
+    pub static ref ROOM_URL: String = lc!("ws://devinserver.biddydev.com:3536/haunted_mansion");
+}
 
 #[derive(States, Default, Debug, Hash, Eq, PartialEq, Clone)]
 enum NetworkState {
@@ -93,12 +97,13 @@ fn listen_for_start_multiplayer(
     mut evt: EventReader<StartMultiplayer>,
     maybe_started: Option<Res<MatchboxSocket<SingleChannel>>>,
 ) {
+    let room_url = ROOM_URL.clone();
     for _ in &mut evt.read() {
         if maybe_started.is_some() {
             return;
         }
-        info!("Connecting to matchmaking server at {}", ROOM_URL);
-        commands.insert_resource(MatchboxSocket::new_reliable(ROOM_URL));
+        info!("Connecting to matchmaking server at {}", room_url);
+        commands.insert_resource(MatchboxSocket::new_reliable(room_url));
         return;
     }
 }

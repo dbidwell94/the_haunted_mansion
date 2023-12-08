@@ -11,7 +11,7 @@ pub enum CharacterType {
     Fbi,
 }
 
-#[derive(Actionlike, Reflect, Clone)]
+#[derive(Actionlike, Reflect, Clone, Hash, PartialEq, Eq)]
 pub enum CharacterInput {
     TogglePause,
     RotateRoom,
