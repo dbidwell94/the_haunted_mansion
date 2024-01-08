@@ -254,7 +254,7 @@ pub fn move_player(
         - player_transform.translation.truncate())
     .normalize();
 
-    velocity.linvel = direction * time.delta_seconds() * CHARACTER_MOVE_SPEED * 100.;
+    velocity.linvel = direction * CHARACTER_MOVE_SPEED;
 }
 
 pub fn move_network_player(

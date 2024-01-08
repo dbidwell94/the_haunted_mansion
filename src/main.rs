@@ -6,7 +6,7 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    window::{CursorGrabMode, PrimaryWindow, WindowMode},
+    window::{CursorGrabMode, PresentMode, PrimaryWindow, WindowMode},
 };
 use bevy_asset_loader::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
